@@ -7,31 +7,76 @@ import '../../../flights/presentation/providers/flight_providers.dart';
 
 import 'package:go_router/go_router.dart';
 
-class SectorsPage extends ConsumerWidget {
+class SectorsPage extends ConsumerStatefulWidget {
   const SectorsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SectorsPage> createState() => _SectorsPageState();
+}
+
+class _SectorsPageState extends ConsumerState<SectorsPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase().trim();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return AppLayout(
       activeRoute: '/sectors',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: AppColors.white,
-            ),
-            onPressed: () {},
-            child: const Text('Lowest Fare Search'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('All Sectors', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search sector (e.g. CCJ DXB)',
+                    hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
+                    filled: true,
+                    fillColor: AppColors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           ref.watch(sectorsProvider).when(
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
             error: (e, st) => Center(child: Padding(padding: const EdgeInsets.all(32), child: Text('Error: $e'))),
             data: (sectors) {
-              if (sectors.isEmpty) {
-                return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('No sectors available.')));
+              final filteredSectors = sectors.where((s) {
+                if (_searchQuery.isEmpty) return true;
+                final forward = '${s.src.toLowerCase()} ${s.dst.toLowerCase()}';
+                final backward = '${s.dst.toLowerCase()} ${s.src.toLowerCase()}';
+                final combined = '${s.src.toLowerCase()}${s.dst.toLowerCase()}';
+                return forward.contains(_searchQuery) || backward.contains(_searchQuery) || combined.contains(_searchQuery.replaceAll(' ', ''));
+              }).toList();
+
+              if (filteredSectors.isEmpty) {
+                return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('No matching sectors found.')));
               }
               return GridView.builder(
                 shrinkWrap: true,
@@ -42,9 +87,9 @@ class SectorsPage extends ConsumerWidget {
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
-                itemCount: sectors.length,
+                itemCount: filteredSectors.length,
                 itemBuilder: (context, index) {
-                  final sector = sectors[index];
+                  final sector = filteredSectors[index];
                   return Card(
                     color: AppColors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

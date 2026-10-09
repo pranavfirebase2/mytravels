@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/app_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sticky_headers/sticky_headers.dart';
 import '../../../flights/presentation/providers/flight_providers.dart';
 import '../../../flights/domain/entities/flight.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
@@ -21,6 +22,7 @@ class SectorDetailsPage extends ConsumerWidget {
 
     return AppLayout(
       activeRoute: '/sectors',
+      disableScroll: true,
       child: flightsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error: $e')),
@@ -62,7 +64,7 @@ class SectorDetailsPage extends ConsumerWidget {
               }
 
               final sortedDates = uniqueDates.toList()..sort(_compareDates);
-              final sortedAgencies = uniqueAgencies.toList()..sort();
+              final sortedAgencies = allAgencies.map((a) => a.name).toList()..sort();
               
               // Sort sectorFlights by date as well for the full records table
               sectorFlights.sort((a, b) => _compareDates(a.date, b.date));
@@ -71,11 +73,8 @@ class SectorDetailsPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 16),
-                    _buildSummaryCards(lowestFare, uniqueAgencies.length, uniqueDates.length),
-                    const SizedBox(height: 16),
-                    _buildComparisonCard(context, sortedDates, sortedAgencies, sectorFlights, agencyDeductions),
+
+                    _buildComparisonCard(context, src, dst, sortedDates, sortedAgencies, sectorFlights, agencyDeductions),
                     const SizedBox(height: 16),
                     _buildFullRecordsCard(sectorFlights, agencyDeductions),
                     const SizedBox(height: 32),
@@ -140,99 +139,9 @@ class SectorDetailsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Card(
-      color: AppColors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => context.go('/sectors'),
-                      tooltip: 'Back to Sectors',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(src, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Icon(Icons.arrow_forward_outlined, color: AppColors.textGrey, size: 20),
-                    ),
-                    Text(dst, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text('Market comparison by origin + final destination', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
-              ],
-            ),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Back'),
-                  onPressed: () => context.pop(),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    foregroundColor: AppColors.white,
-                  ),
-                  onPressed: () => context.go('/sectors'),
-                  child: const Text('All Sectors'),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildSummaryCards(double? lowestFare, int agenciesCount, int datesCount) {
-    return Row(
-      children: [
-        Expanded(child: _buildMetricCard('Lowest comparison fare', lowestFare != null ? '₹${lowestFare.toInt()}' : '—')),
-        const SizedBox(width: 16),
-        Expanded(child: _buildMetricCard('Agencies compared', '$agenciesCount')),
-        const SizedBox(width: 16),
-        Expanded(child: _buildMetricCard('Dates checked', '$datesCount')),
-        const SizedBox(width: 16),
-        Expanded(child: _buildMetricCard('View', 'Starred')),
-      ],
-    );
-  }
 
-  Widget _buildMetricCard(String title, String value) {
-    return Card(
-      color: AppColors.cardBackground,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(color: AppColors.textGrey, fontSize: 12)),
-            const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildComparisonCard(BuildContext context, List<String> dates, List<String> agencies, List<Flight> flights, Map<String, double> agencyDeductions) {
+  Widget _buildComparisonCard(BuildContext context, String src, String dst, List<String> dates, List<String> agencies, List<Flight> flights, Map<String, double> agencyDeductions) {
     return Card(
       color: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -243,85 +152,104 @@ class SectorDetailsPage extends ConsumerWidget {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Agency comparison', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Row(
                   children: [
-                    const Text('Dates', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.arrow_back, size: 18),
+                      label: const Text('Back'),
+                      onPressed: () => context.go('/sectors'),
+                    ),
                     const SizedBox(width: 8),
-                    _buildDatePicker(context),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue,
+                        foregroundColor: AppColors.white,
+                      ),
+                      onPressed: () => context.go('/sectors'),
+                      child: const Text('All Sectors'),
+                    ),
                     const SizedBox(width: 16),
-                    _buildToggleButton('Compare', isSelected: true),
-                    const SizedBox(width: 8),
-                    _buildToggleButton('Starred', isSelected: false),
-                    const SizedBox(width: 8),
-                    _buildToggleButton('All', isSelected: false),
+                    Text(
+                      '$src - $dst',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ],
+                ),
+                SizedBox(
+                  width: 250,
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search...',
+                      hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 13),
+                      filled: true,
+                      fillColor: AppColors.scaffoldBackground,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                      prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Text('Lowest comparison fare is placed first. Agency-specific comparison deductions are applied below; original marketed fares remain unchanged.', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
-            const SizedBox(height: 16),
-            
-            // Agency Adjustments Banner
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  const Text('Agency Master adjustments:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textBlack)),
-                  ...agencies.map((agency) {
-                    final ded = agencyDeductions[agency] ?? 0;
-                    if (ded == 0) return const SizedBox.shrink();
-                    return Text('$agency - ₹${ded.toInt()}', style: const TextStyle(fontSize: 13, color: AppColors.textBlack));
-                  }),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 16),
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: AppColors.textGrey.withValues(alpha: 0.2)),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Table(
-                border: TableBorder.symmetric(inside: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1))),
-                columnWidths: {
-                  0: const FlexColumnWidth(1),
-                  for (var i = 1; i <= agencies.length; i++) i: const FlexColumnWidth(2),
-                },
-                children: [
-                  TableRow(
-                    decoration: const BoxDecoration(color: AppColors.cardBackground),
+              clipBehavior: Clip.antiAlias,
+              child: StickyHeader(
+                header: Container(
+                  color: AppColors.white,
+                  child: Table(
+                    columnWidths: {
+                      0: const FlexColumnWidth(1),
+                      for (var i = 1; i <= agencies.length; i++) i: const FlexColumnWidth(2),
+                    },
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: Text('Travel date', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TableRow(
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBackground,
+                          border: Border(bottom: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1))),
+                        ),
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: Text('Travel date', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                          ...agencies.map((agency) => Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.star, color: Colors.green, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(agency, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                                  ],
+                                ),
+                              )),
+                        ],
                       ),
-                      ...agencies.map((agency) => Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.star, color: Colors.green, size: 16),
-                                const SizedBox(width: 4),
-                                Flexible(child: Text(agency, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                              ],
-                            ),
-                          )),
                     ],
                   ),
-                  ...dates.map((date) {
+                ),
+                content: Table(
+                  border: TableBorder.symmetric(inside: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1))),
+                  columnWidths: {
+                    0: const FlexColumnWidth(1),
+                    for (var i = 1; i <= agencies.length; i++) i: const FlexColumnWidth(2),
+                  },
+                  children: [
+                    ...dates.map((date) {
+                    // Find lowest price for this date across all agencies
+                    final flightsForDate = flights.where((f) => f.date == date).toList();
+                    double minPriceForDate = double.infinity;
+                    for (var f in flightsForDate) {
+                      final price = f.marketedPrice - (agencyDeductions[f.agencyName] ?? 0);
+                      if (price < minPriceForDate) minPriceForDate = price;
+                    }
+
                     return TableRow(
                       children: [
                         Padding(
@@ -343,14 +271,19 @@ class SectorDetailsPage extends ConsumerWidget {
                               children: flightOptions.map((f) {
                                 final ded = agencyDeductions[f.agencyName] ?? 0;
                                 final adjustedPrice = f.marketedPrice - ded;
+                                final isLowest = adjustedPrice == minPriceForDate;
+                                
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12.0),
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: AppColors.cardBackground,
+                                      color: isLowest ? Colors.green.withValues(alpha: 0.1) : AppColors.cardBackground,
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.2)),
+                                      border: Border.all(
+                                        color: isLowest ? Colors.green : AppColors.primaryBlue.withValues(alpha: 0.2),
+                                        width: isLowest ? 2 : 1,
+                                      ),
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,8 +299,8 @@ class SectorDetailsPage extends ConsumerWidget {
                                                 if (logoPath != null) {
                                                   return Image.asset(
                                                     logoPath,
-                                                    width: 40,
-                                                    height: 24,
+                                                    width: 60,
+                                                    height: 36,
                                                     fit: BoxFit.contain,
                                                     errorBuilder: (context, error, stackTrace) {
                                                       return _buildFallbackLogo(f.airline);
@@ -380,7 +313,7 @@ class SectorDetailsPage extends ConsumerWidget {
                                             // Price
                                             Text(
                                               '₹${adjustedPrice.toInt()}',
-                                              style: TextStyle(color: Colors.purple.withValues(alpha: 0.8), fontSize: 16, fontWeight: FontWeight.bold),
+                                              style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
                                             ),
                                           ],
                                         ),
@@ -403,7 +336,7 @@ class SectorDetailsPage extends ConsumerWidget {
                   }),
                 ],
               ),
-            ),
+            ),)
           ],
         ),
       ),

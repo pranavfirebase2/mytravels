@@ -6,61 +6,46 @@ import '../constants/app_colors.dart';
 class AppLayout extends StatelessWidget {
   final Widget child;
   final String activeRoute;
+  final bool disableScroll;
 
   const AppLayout({
     super.key,
     required this.child,
     required this.activeRoute,
+    this.disableScroll = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldBackground,
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
+      appBar: _buildAppBar(context),
+      body: disableScroll ? Padding(padding: const EdgeInsets.all(16.0), child: child) : SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildNavRow(context),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
+        child: child,
       ),
     );
   }
 
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.headerDark, 
-      title: const Text(
-        'MyTravels Market Fare Intelligence',
-        style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: SizedBox(
-            width: 200,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search sector / destination',
-                hintStyle: const TextStyle(color: AppColors.textGrey),
-                filled: true,
-                fillColor: AppColors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              ),
+      backgroundColor: AppColors.headerDark,
+      titleSpacing: 16,
+      title: Row(
+        children: [
+          const Text(
+            'My Travels',
+            style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 22),
+          ),
+          const SizedBox(width: 48),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: _buildNavRow(context),
             ),
           ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.search, color: AppColors.iconBlueAccent),
-          onPressed: () {},
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -71,27 +56,27 @@ class AppLayout extends StatelessWidget {
       'Import': '/import',
       'AgencyData': '/data',
       'Lowest Fare': '/lowest-fare',
-      // 'Backup': '/backup',
-      // 'Restore': '/restore',
     };
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return Row(
       children: navItems.entries.map((entry) {
         final isActive = entry.value == activeRoute;
-        return ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isActive ? AppColors.navActive : AppColors.navInactive,
-            foregroundColor: AppColors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        return Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: isActive ? AppColors.white.withValues(alpha: 0.15) : Colors.transparent,
+              foregroundColor: isActive ? AppColors.white : AppColors.white.withValues(alpha: 0.7),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              if (!isActive) {
+                context.go(entry.value);
+              }
+            },
+            child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           ),
-          onPressed: () {
-            if (!isActive) {
-              context.go(entry.value);
-            }
-          },
-          child: Text(entry.key),
         );
       }).toList(),
     );
