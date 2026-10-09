@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
@@ -11,11 +12,12 @@ class GeminiService {
       throw Exception('GEMINI_API_KEY is not set in the .env file');
     }
     // Using gemini-3.5-flash as it is usually more stable and less crowded
-    _model = GenerativeModel(model: 'gemini-3.5-flash', apiKey: apiKey);
+    _model = GenerativeModel(model: 'gemini-flash-latest', apiKey: apiKey);
   }
 
   Future<List<Map<String, dynamic>>> parseFlightData(String message) async {
-    final prompt = '''
+    final prompt =
+        '''
 You are an expert AI that extracts flight fare data from unstructured travel agency WhatsApp messages.
 Extract the flights into a clean JSON array of objects.
 
@@ -43,10 +45,13 @@ $message
     try {
       final response = await _model.generateContent([Content.text(prompt)]);
       final text = response.text ?? '[]';
-      
+
       // Clean up markdown block if the model accidentally adds it
-      final cleanText = text.replaceAll('```json', '').replaceAll('```', '').trim();
-      
+      final cleanText = text
+          .replaceAll('```json', '')
+          .replaceAll('```', '')
+          .trim();
+
       final List<dynamic> parsed = jsonDecode(cleanText);
       return parsed.cast<Map<String, dynamic>>();
     } catch (e) {

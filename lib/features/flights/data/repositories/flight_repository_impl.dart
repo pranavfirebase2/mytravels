@@ -9,7 +9,12 @@ class FlightRepositoryImpl implements FlightRepository {
   FlightRepositoryImpl(this._remoteDataSource);
 
   @override
-  Future<void> saveFlights(List<Flight> flights) async {
+  Future<List<Flight>> getAllFlights() {
+    return _remoteDataSource.getAllFlights();
+  }
+
+  @override
+  Future<void> saveFlights(List<Flight> flights, {void Function(int count, int total)? onProgress}) async {
     final flightModels = flights.map((f) => FlightModel(
       id: f.id,
       agencyId: f.agencyId,
@@ -23,8 +28,9 @@ class FlightRepositoryImpl implements FlightRepository {
       baggage: f.baggage,
       seats: f.seats,
       marketedPrice: f.marketedPrice,
+      parsedDate: f.parsedDate,
     )).toList();
-    return _remoteDataSource.saveFlights(flightModels);
+    return _remoteDataSource.saveFlights(flightModels, onProgress: onProgress);
   }
 
   @override

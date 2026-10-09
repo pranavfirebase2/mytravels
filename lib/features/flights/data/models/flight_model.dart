@@ -14,6 +14,7 @@ class FlightModel extends Flight {
     required super.baggage,
     required super.seats,
     required super.marketedPrice,
+    super.parsedDate,
   });
 
   Map<String, dynamic> toJson() {
@@ -30,6 +31,7 @@ class FlightModel extends Flight {
       'baggage': baggage,
       'seats': seats,
       'marketedPrice': marketedPrice,
+      'parsedDate': parsedDate?.toIso8601String(),
       'createdAt': DateTime.now().toIso8601String(),
     };
   }
@@ -48,6 +50,7 @@ class FlightModel extends Flight {
       baggage: json['baggage'] ?? '',
       seats: json['seats'] ?? '',
       marketedPrice: double.tryParse(json['marketedPrice']?.toString() ?? '0') ?? 0.0,
+      parsedDate: json['parsedDate'] != null ? DateTime.tryParse(json['parsedDate']) : null,
     );
   }
 }

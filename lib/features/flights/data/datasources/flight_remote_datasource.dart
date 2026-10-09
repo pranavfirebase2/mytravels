@@ -7,29 +7,66 @@ class FlightRemoteDataSource {
 
   FlightRemoteDataSource(this._firestore);
 
-  Future<void> saveFlights(List<FlightModel> flights) async {
+  Future<void> saveFlights(List<FlightModel> flights, {void Function(int count, int total)? onProgress}) async {
     try {
-      final batch = _firestore.batch();
-      for (var flight in flights) {
-        final docRef = _firestore.collection('flights').doc();
-        // create a copy with the generated id
-        final newFlight = FlightModel(
-          id: docRef.id,
-          agencyId: flight.agencyId,
-          agencyName: flight.agencyName,
-          source: flight.source,
-          destination: flight.destination,
-          date: flight.date,
-          airline: flight.airline,
-          flightNumber: flight.flightNumber,
-          timing: flight.timing,
-          baggage: flight.baggage,
-          seats: flight.seats,
-          marketedPrice: flight.marketedPrice,
-        );
-        batch.set(docRef, newFlight.toJson());
+      if (onProgress != null) {
+        int count = 0;
+        final total = flights.length;
+        for (var flight in flights) {
+          final docRef = _firestore.collection('flights').doc();
+          final newFlight = FlightModel(
+            id: docRef.id,
+            agencyId: flight.agencyId,
+            agencyName: flight.agencyName,
+            source: flight.source,
+            destination: flight.destination,
+            date: flight.date,
+            airline: flight.airline,
+            flightNumber: flight.flightNumber,
+            timing: flight.timing,
+            baggage: flight.baggage,
+            seats: flight.seats,
+            marketedPrice: flight.marketedPrice,
+            parsedDate: flight.parsedDate,
+          );
+          await docRef.set(newFlight.toJson());
+          count++;
+          onProgress(count, total);
+        }
+      } else {
+        final batch = _firestore.batch();
+        for (var flight in flights) {
+          final docRef = _firestore.collection('flights').doc();
+          final newFlight = FlightModel(
+            id: docRef.id,
+            agencyId: flight.agencyId,
+            agencyName: flight.agencyName,
+            source: flight.source,
+            destination: flight.destination,
+            date: flight.date,
+            airline: flight.airline,
+            flightNumber: flight.flightNumber,
+            timing: flight.timing,
+            baggage: flight.baggage,
+            seats: flight.seats,
+            marketedPrice: flight.marketedPrice,
+            parsedDate: flight.parsedDate,
+          );
+          batch.set(docRef, newFlight.toJson());
+        }
+        await batch.commit();
       }
-      await batch.commit();
+    } catch (e) {
+      throw FirebaseExceptionHandler.handleException(e);
+    }
+  }
+
+  Future<List<FlightModel>> getAllFlights() async {
+    try {
+      final snapshot = await _firestore.collection('flights').get();
+      return snapshot.docs
+          .map((doc) => FlightModel.fromJson(doc.data()))
+          .toList();
     } catch (e) {
       throw FirebaseExceptionHandler.handleException(e);
     }

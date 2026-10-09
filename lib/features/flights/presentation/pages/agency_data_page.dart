@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/app_layout.dart';
+import '../../../../core/utils/responsive_layout.dart';
 import '../../../../core/utils/logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
@@ -188,70 +189,83 @@ class _AgencyDataPageState extends ConsumerState<AgencyDataPage> {
                       return const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text('No flights found for this agency', style: TextStyle(color: AppColors.textGrey))));
                     }
                     final grouped = _groupFlights(flights);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: grouped.entries.map((entry) {
-                        final title = entry.key;
-                        final groupFlights = entry.value;
-                        
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          color: AppColors.cardBackground,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: AppColors.primaryBlue.withValues(alpha: 0.2)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryBlue,
-                                  borderRadius: BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final crossAxisCount = ResponsiveLayout.isDesktop(context) ? 3 : ResponsiveLayout.isTablet(context) ? 2 : 1;
+                        final spacing = 24.0;
+                        final itemWidth = (constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+
+                        return Wrap(
+                          spacing: spacing,
+                          runSpacing: spacing,
+                          crossAxisAlignment: WrapCrossAlignment.start,
+                          children: grouped.entries.map((entry) {
+                            final title = entry.key;
+                            final groupFlights = entry.value;
+                            
+                            return SizedBox(
+                              width: itemWidth,
+                              child: Card(
+                                margin: EdgeInsets.zero,
+                                color: AppColors.cardBackground,
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: AppColors.primaryBlue.withValues(alpha: 0.2)),
                                 ),
-                                child: Text(
-                                  title,
-                                  style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primaryBlue,
+                                        borderRadius: BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+                                      ),
+                                      child: Text(
+                                        title,
+                                        style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Table(
+                                        columnWidths: const {
+                                          0: FlexColumnWidth(2),
+                                          1: FlexColumnWidth(3),
+                                          2: IntrinsicColumnWidth(),
+                                        },
+                                        children: groupFlights.map((f) {
+                                          return TableRow(
+                                            children: [
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
+                                                child: Text(f.date, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
+                                                child: Text('₹${f.marketedPrice.toInt()}/-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textBlack, fontSize: 15)),
+                                              ),
+                                              Align(
+                                                alignment: Alignment.centerRight,
+                                                child: IconButton(
+                                                  icon: const Icon(Icons.delete_outline, color: AppColors.errorRed, size: 22),
+                                                  onPressed: () => _confirmDelete(f),
+                                                  tooltip: 'Delete Flight',
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Table(
-                                  columnWidths: const {
-                                    0: FlexColumnWidth(2),
-                                    1: FlexColumnWidth(3),
-                                    2: IntrinsicColumnWidth(),
-                                  },
-                                  children: groupFlights.map((f) {
-                                    return TableRow(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
-                                          child: Text(f.date, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
-                                          child: Text('₹${f.marketedPrice.toInt()}/-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textBlack, fontSize: 15)),
-                                        ),
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: IconButton(
-                                            icon: const Icon(Icons.delete_outline, color: AppColors.errorRed, size: 22),
-                                            onPressed: () => _confirmDelete(f),
-                                            tooltip: 'Delete Flight',
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
-                          ),
+                            );
+                          }).toList(),
                         );
-                      }).toList(),
+                      }
                     );
                   }
                 ),

@@ -57,3 +57,44 @@ class AgencyFlightsNotifier extends AsyncNotifier<List<Flight>> {
 final agencyFlightsProvider = AsyncNotifierProvider<AgencyFlightsNotifier, List<Flight>>(() {
   return AgencyFlightsNotifier();
 });
+
+final allFlightsProvider = FutureProvider<List<Flight>>((ref) async {
+  final repository = ref.watch(flightRepositoryProvider);
+  return repository.getAllFlights();
+});
+
+class SectorData {
+  final String src;
+  final String dst;
+  final List<String> airlines;
+  
+  SectorData({required this.src, required this.dst, required this.airlines});
+}
+
+final sectorsProvider = FutureProvider<List<SectorData>>((ref) async {
+  final flights = await ref.watch(allFlightsProvider.future);
+  
+  final Map<String, Set<String>> sectorMap = {};
+  for (var flight in flights) {
+    final key = '${flight.source}-${flight.destination}';
+    if (!sectorMap.containsKey(key)) {
+      sectorMap[key] = {};
+    }
+    if (flight.airline.isNotEmpty) {
+      sectorMap[key]!.add(flight.airline);
+    }
+  }
+
+  final List<SectorData> sectors = sectorMap.entries.map((entry) {
+    final parts = entry.key.split('-');
+    return SectorData(
+      src: parts[0],
+      dst: parts[1],
+      airlines: entry.value.toList()..sort(),
+    );
+  }).toList();
+  
+  sectors.sort((a, b) => a.src.compareTo(b.src) == 0 ? a.dst.compareTo(b.dst) : a.src.compareTo(b.src));
+
+  return sectors;
+});
