@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "198976299249",
+    "project_id": "job-ec-e3aef",
+    "storage_bucket": "job-ec-e3aef.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:198976299249:android:06a66f619178a0e299c950",
+        "android_client_info": {
+          "package_name": "com.example.mytravels"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDctPGz9TUeO1Xu8yDEKVcJboaOG1Qpbwk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
