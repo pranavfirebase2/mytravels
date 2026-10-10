@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../core/widgets/app_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,9 +15,12 @@ class SectorsPage extends ConsumerStatefulWidget {
   ConsumerState<SectorsPage> createState() => _SectorsPageState();
 }
 
+
 class _SectorsPageState extends ConsumerState<SectorsPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _selectedFrom;
+  String? _selectedTo;
 
   @override
   void initState() {
@@ -36,6 +40,12 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final sectorsAsync = ref.watch(sectorsProvider);
+    final sectorsList = sectorsAsync.value ?? [];
+    
+    final uniqueFroms = sectorsList.map((s) => s.src).toSet().toList()..sort();
+    final uniqueTos = sectorsList.map((s) => s.dst).toSet().toList()..sort();
+
     return AppLayout(
       activeRoute: '/sectors',
       child: Column(
@@ -45,34 +55,73 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('All Sectors', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
-              SizedBox(
-                width: 300,
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search sector (e.g. CCJ DXB)',
-                    hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
-                    filled: true,
-                    fillColor: AppColors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                    prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+              Row(
+                children: [
+                  _buildDropdown('From', uniqueFroms, _selectedFrom, (val) => setState(() => _selectedFrom = val)),
+                  const SizedBox(width: 8),
+                  _buildDropdown('To', uniqueTos, _selectedTo, (val) => setState(() => _selectedTo = val)),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 250,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search sector (e.g. CCJ DXB)',
+                        hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
+                        filled: true,
+                        fillColor: AppColors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+                      ),
+                    ),
                   ),
-                ),
+                  if (_selectedFrom != null || _selectedTo != null || _searchQuery.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedFrom = null;
+                            _selectedTo = null;
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Clear All'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 16),
-          ref.watch(sectorsProvider).when(
+          sectorsAsync.when(
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
             error: (e, st) => Center(child: Padding(padding: const EdgeInsets.all(32), child: Text('Error: $e'))),
             data: (sectors) {
               final filteredSectors = sectors.where((s) {
+                if (_selectedFrom != null && s.src != _selectedFrom) return false;
+                if (_selectedTo != null && s.dst != _selectedTo) return false;
                 if (_searchQuery.isEmpty) return true;
+                final srcName = AppStrings.airportNames[s.src]?.toLowerCase() ?? '';
+                final dstName = AppStrings.airportNames[s.dst]?.toLowerCase() ?? '';
+                
                 final forward = '${s.src.toLowerCase()} ${s.dst.toLowerCase()}';
                 final backward = '${s.dst.toLowerCase()} ${s.src.toLowerCase()}';
                 final combined = '${s.src.toLowerCase()}${s.dst.toLowerCase()}';
-                return forward.contains(_searchQuery) || backward.contains(_searchQuery) || combined.contains(_searchQuery.replaceAll(' ', ''));
+                final forwardNames = '$srcName $dstName';
+                final backwardNames = '$dstName $srcName';
+                
+                return forward.contains(_searchQuery) || 
+                       backward.contains(_searchQuery) || 
+                       combined.contains(_searchQuery.replaceAll(' ', '')) ||
+                       forwardNames.contains(_searchQuery) ||
+                       backwardNames.contains(_searchQuery) ||
+                       srcName.contains(_searchQuery) ||
+                       dstName.contains(_searchQuery);
               }).toList();
 
               if (filteredSectors.isEmpty) {
@@ -118,10 +167,15 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${AppStrings.airportNames[sector.src] ?? sector.src} - ${AppStrings.airportNames[sector.dst] ?? sector.dst}',
+                              style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               sector.airlines.isEmpty ? 'Unknown' : sector.airlines.join(' · '),
-                              style: const TextStyle(color: AppColors.textGrey, fontSize: 12, fontWeight: FontWeight.w600),
+                              style: const TextStyle(color: AppColors.textGrey, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -133,6 +187,35 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown(String hint, List<String> items, String? value, ValueChanged<String?> onChanged) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          hint: Text(hint, style: const TextStyle(color: AppColors.textGrey, fontSize: 14)),
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.primaryBlue),
+          items: [
+            DropdownMenuItem<String>(
+              value: null,
+              child: Text(hint == 'From' ? 'All Origins' : 'All Dests', style: const TextStyle(fontSize: 14)),
+            ),
+            ...items.map((e) => DropdownMenuItem(
+              value: e,
+              child: Text(e, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            ))
+          ],
+          onChanged: onChanged,
+        ),
       ),
     );
   }

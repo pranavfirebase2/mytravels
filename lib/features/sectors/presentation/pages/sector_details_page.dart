@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../core/widgets/app_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -121,6 +122,7 @@ class SectorDetailsPage extends ConsumerWidget {
     if (code == 'QP') return 'assets/LOGO/QP.png';
     if (code == 'WY') return 'assets/LOGO/WY.png';
     if (code == 'XY') return 'assets/LOGO/XY.jpg';
+    if (code == 'SV') return 'assets/LOGO/SV.png';
     if (code == '3L' || code == 'G9') return 'assets/LOGO/3L and G9.png';
     return null;
   }
@@ -170,9 +172,22 @@ class SectorDetailsPage extends ConsumerWidget {
                       child: const Text('All Sectors'),
                     ),
                     const SizedBox(width: 16),
-                    Text(
-                      '$src - $dst',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$src - $dst',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2.0),
+                          child: Text(
+                            '(${AppStrings.airportNames[src] ?? src} - ${AppStrings.airportNames[dst] ?? dst})',
+                            style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -193,20 +208,27 @@ class SectorDetailsPage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.textGrey.withValues(alpha: 0.2)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: StickyHeader(
-                header: Container(
-                  color: AppColors.white,
-                  child: Table(
-                    columnWidths: {
-                      0: const FlexColumnWidth(1),
-                      for (var i = 1; i <= agencies.length; i++) i: const FlexColumnWidth(2),
-                    },
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final double dateColWidth = 120.0;
+                final double agencyColWidth = 180.0;
+                final double totalNeededWidth = dateColWidth + (agencies.length * agencyColWidth);
+                final bool isScrollable = totalNeededWidth > constraints.maxWidth;
+
+                Widget tableContent = Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.textGrey.withValues(alpha: 0.2)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: StickyHeader(
+                    header: Container(
+                      color: AppColors.white,
+                      child: Table(
+                        columnWidths: {
+                          0: isScrollable ? FixedColumnWidth(dateColWidth) : const FlexColumnWidth(1),
+                          for (var i = 1; i <= agencies.length; i++) i: isScrollable ? FixedColumnWidth(agencyColWidth) : const FlexColumnWidth(2),
+                        },
                     children: [
                       TableRow(
                         decoration: BoxDecoration(
@@ -237,8 +259,8 @@ class SectorDetailsPage extends ConsumerWidget {
                 content: Table(
                   border: TableBorder.symmetric(inside: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1))),
                   columnWidths: {
-                    0: const FlexColumnWidth(1),
-                    for (var i = 1; i <= agencies.length; i++) i: const FlexColumnWidth(2),
+                    0: isScrollable ? FixedColumnWidth(dateColWidth) : const FlexColumnWidth(1),
+                    for (var i = 1; i <= agencies.length; i++) i: isScrollable ? FixedColumnWidth(agencyColWidth) : const FlexColumnWidth(2),
                   },
                   children: [
                     ...dates.map((date) {
@@ -318,11 +340,14 @@ class SectorDetailsPage extends ConsumerWidget {
                                           ],
                                         ),
                                         const SizedBox(height: 10),
-                                        Text('$src - $dst', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textBlack)),
+                                        Text(
+                                          '$src - $dst (${AppStrings.airportNames[src] ?? src} - ${AppStrings.airportNames[dst] ?? dst})', 
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textBlack)
+                                        ),
                                         const SizedBox(height: 2),
-                                        Text('${f.airline} - ${f.flightNumber}', style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                                        Text('${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}', style: const TextStyle(fontSize: 9, color: AppColors.textGrey)),
                                         const SizedBox(height: 2),
-                                        Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                                        Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
                                       ],
                                     ),
                                   ),
@@ -335,13 +360,26 @@ class SectorDetailsPage extends ConsumerWidget {
                     );
                   }),
                 ],
-              ),
-            ),)
-          ],
+              ),)
+            );
+
+            if (isScrollable) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: totalNeededWidth),
+                  child: tableContent,
+                ),
+              );
+            }
+            return tableContent;
+          },
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  ),
+);
+}
 
   Widget _buildFullRecordsCard(List<Flight> flights, Map<String, double> agencyDeductions) {
     return Card(

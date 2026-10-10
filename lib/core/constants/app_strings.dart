@@ -11,4 +11,52 @@ class AppStrings {
   static const String networkError = 'Network error occurred. Please check your connection.';
   static const String unknownError = 'An unknown error occurred.';
   static const String geminiParseError = 'Could not parse the message. Please check the format.';
+
+  static const Map<String, String> airportNames = {
+    'TRZ': 'Trichy',
+    'CCJ': 'Calicut',
+    'DXB': 'Dubai',
+    'SHJ': 'Sharjah',
+    'AUH': 'Abu Dhabi',
+    'AAN': 'Al Ain',
+    'COK': 'Kochi',
+    'TRV': 'Trivandrum',
+    'IXE': 'Mangalore',
+    'BLR': 'Bangalore',
+    'BOM': 'Mumbai',
+    'DEL': 'Delhi',
+    'DOH': 'Doha',
+    'KWI': 'Kuwait',
+    'MCT': 'Muscat',
+    'BAH': 'Bahrain',
+    'RUH': 'Riyadh',
+    'JED': 'Jeddah',
+    'DMM': 'Dammam',
+    'SAL': 'Salalah',
+    'CAN': 'Guangzhou',
+    'SIN': 'Singapore',
+    'KUL': 'Kuala Lumpur',
+  };
+
+  static const Map<String, String> airlineNames = {
+    'IX': 'Air India Express',
+    'OV': 'SalamAir',
+    '6E': 'IndiGo',
+    'FZ': 'Flydubai',
+    'GF': 'Gulf Air',
+    'J9': 'Jazeera Airways',
+    'KU': 'Kuwait Airways',
+    'QP': 'Akasa Air',
+    'WY': 'Oman Air',
+    'XY': 'Flynas',
+    '3L': 'Air Arabia',
+    'G9': 'Air Arabia',
+    'SV': 'Saudia',
+    'AI': 'Air India',
+    'EK': 'Emirates',
+    'QR': 'Qatar Airways',
+    'EY': 'Etihad Airways',
+    'F3': 'flyadeal',
+    'RX': 'Riyadh Air',
+  };
 }
