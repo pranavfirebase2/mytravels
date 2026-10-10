@@ -39,6 +39,7 @@
     }
   },
   "hosting": {
+    "site": "mytravels4",
     "public": "build/web",
     "ignore": [
       "firebase.json",
