@@ -12,6 +12,7 @@ class Flight {
   final String seats;
   final double marketedPrice;
   final DateTime? parsedDate; // Real date for filtering
+  final DateTime? createdAt;
 
   Flight({
     required this.id,
@@ -27,5 +28,6 @@ class Flight {
     required this.seats,
     required this.marketedPrice,
     this.parsedDate,
+    this.createdAt,
   });
 }

@@ -28,6 +28,7 @@ class FlightRemoteDataSource {
             seats: flight.seats,
             marketedPrice: flight.marketedPrice,
             parsedDate: flight.parsedDate,
+            createdAt: flight.createdAt ?? DateTime.now(),
           );
           await docRef.set(newFlight.toJson());
           count++;
@@ -51,6 +52,7 @@ class FlightRemoteDataSource {
             seats: flight.seats,
             marketedPrice: flight.marketedPrice,
             parsedDate: flight.parsedDate,
+            createdAt: flight.createdAt ?? DateTime.now(),
           );
           batch.set(docRef, newFlight.toJson());
         }

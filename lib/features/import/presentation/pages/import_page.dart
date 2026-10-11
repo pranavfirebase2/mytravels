@@ -104,6 +104,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           seats: data['seats'] ?? '',
           marketedPrice: (data['marketedPrice'] ?? 0).toDouble(),
           parsedDate: parsed,
+          createdAt: DateTime.now(),
         );
       }).toList();
 

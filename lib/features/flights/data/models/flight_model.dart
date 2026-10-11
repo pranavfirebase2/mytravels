@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/flight.dart';
 
 class FlightModel extends Flight {
@@ -15,6 +16,7 @@ class FlightModel extends Flight {
     required super.seats,
     required super.marketedPrice,
     super.parsedDate,
+    super.createdAt,
   });
 
   Map<String, dynamic> toJson() {
@@ -32,8 +34,15 @@ class FlightModel extends Flight {
       'seats': seats,
       'marketedPrice': marketedPrice,
       'parsedDate': parsedDate?.toIso8601String(),
-      'createdAt': DateTime.now().toIso8601String(),
+      'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
     };
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   factory FlightModel.fromJson(Map<String, dynamic> json) {
@@ -51,6 +60,7 @@ class FlightModel extends Flight {
       seats: json['seats'] ?? '',
       marketedPrice: double.tryParse(json['marketedPrice']?.toString() ?? '0') ?? 0.0,
       parsedDate: json['parsedDate'] != null ? DateTime.tryParse(json['parsedDate']) : null,
+      createdAt: _parseDateTime(json['createdAt'] ?? json['updatedAt'] ?? json['timestamp']),
     );
   }
 }

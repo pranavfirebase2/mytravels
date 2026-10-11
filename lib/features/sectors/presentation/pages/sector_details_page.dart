@@ -4,11 +4,10 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/widgets/app_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sticky_headers/sticky_headers.dart';
 import '../../../flights/presentation/providers/flight_providers.dart';
 import '../../../flights/domain/entities/flight.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
-import '../../../agency/domain/entities/agency.dart';
+import '../widgets/sector_comparison_table.dart';
 
 class SectorDetailsPage extends ConsumerWidget {
   final String src;
@@ -65,7 +64,7 @@ class SectorDetailsPage extends ConsumerWidget {
               }
 
               final sortedDates = uniqueDates.toList()..sort(_compareDates);
-              final sortedAgencies = allAgencies.map((a) => a.name).toList()..sort();
+              final sortedAgencies = uniqueAgencies.where((a) => a.trim().isNotEmpty).toList()..sort();
               
               // Sort sectorFlights by date as well for the full records table
               sectorFlights.sort((a, b) => _compareDates(a.date, b.date));
@@ -208,178 +207,21 @@ class SectorDetailsPage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final double dateColWidth = 120.0;
-                final double agencyColWidth = 180.0;
-                final double totalNeededWidth = dateColWidth + (agencies.length * agencyColWidth);
-                final bool isScrollable = totalNeededWidth > constraints.maxWidth;
-
-                Widget tableContent = Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.textGrey.withValues(alpha: 0.2)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: StickyHeader(
-                    header: Container(
-                      color: AppColors.white,
-                      child: Table(
-                        columnWidths: {
-                          0: isScrollable ? FixedColumnWidth(dateColWidth) : const FlexColumnWidth(1),
-                          for (var i = 1; i <= agencies.length; i++) i: isScrollable ? FixedColumnWidth(agencyColWidth) : const FlexColumnWidth(2),
-                        },
-                    children: [
-                      TableRow(
-                        decoration: BoxDecoration(
-                          color: AppColors.cardBackground,
-                          border: Border(bottom: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1))),
-                        ),
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.all(12.0),
-                            child: Text('Travel date', style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                          ...agencies.map((agency) => Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.star, color: Colors.green, size: 16),
-                                    const SizedBox(width: 4),
-                                    Flexible(child: Text(agency, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                                  ],
-                                ),
-                              )),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                content: Table(
-                  border: TableBorder.symmetric(inside: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1))),
-                  columnWidths: {
-                    0: isScrollable ? FixedColumnWidth(dateColWidth) : const FlexColumnWidth(1),
-                    for (var i = 1; i <= agencies.length; i++) i: isScrollable ? FixedColumnWidth(agencyColWidth) : const FlexColumnWidth(2),
-                  },
-                  children: [
-                    ...dates.map((date) {
-                    // Find lowest price for this date across all agencies
-                    final flightsForDate = flights.where((f) => f.date == date).toList();
-                    double minPriceForDate = double.infinity;
-                    for (var f in flightsForDate) {
-                      final price = f.marketedPrice - (agencyDeductions[f.agencyName] ?? 0);
-                      if (price < minPriceForDate) minPriceForDate = price;
-                    }
-
-                    return TableRow(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Text(date, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        ...agencies.map((agency) {
-                          // Find flights for this date and agency
-                          final flightOptions = flights.where((f) => f.date == date && f.agencyName == agency).toList();
-                          if (flightOptions.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Center(child: Text('—', style: TextStyle(color: AppColors.textGrey))),
-                            );
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              children: flightOptions.map((f) {
-                                final ded = agencyDeductions[f.agencyName] ?? 0;
-                                final adjustedPrice = f.marketedPrice - ded;
-                                final isLowest = adjustedPrice == minPriceForDate;
-                                
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: isLowest ? Colors.green.withValues(alpha: 0.1) : AppColors.cardBackground,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: isLowest ? Colors.green : AppColors.primaryBlue.withValues(alpha: 0.2),
-                                        width: isLowest ? 2 : 1,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Logo or fallback
-                                            Builder(
-                                              builder: (context) {
-                                                final logoPath = _getAirlineLogoPath(f.airline);
-                                                if (logoPath != null) {
-                                                  return Image.asset(
-                                                    logoPath,
-                                                    width: 60,
-                                                    height: 36,
-                                                    fit: BoxFit.contain,
-                                                    errorBuilder: (context, error, stackTrace) {
-                                                      return _buildFallbackLogo(f.airline);
-                                                    },
-                                                  );
-                                                }
-                                                return _buildFallbackLogo(f.airline);
-                                              },
-                                            ),
-                                            // Price
-                                            Text(
-                                              '₹${adjustedPrice.toInt()}',
-                                              style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          '$src - $dst (${AppStrings.airportNames[src] ?? src} - ${AppStrings.airportNames[dst] ?? dst})', 
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textBlack)
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text('${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}', style: const TextStyle(fontSize: 9, color: AppColors.textGrey)),
-                                        const SizedBox(height: 2),
-                                        Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          );
-                        }),
-                      ],
-                    );
-                  }),
-                ],
-              ),)
-            );
-
-            if (isScrollable) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: totalNeededWidth),
-                  child: tableContent,
-                ),
-              );
-            }
-            return tableContent;
-          },
+            SectorComparisonTable(
+              dates: dates,
+              agencies: agencies,
+              flights: flights,
+              agencyDeductions: agencyDeductions,
+              src: src,
+              dst: dst,
+              getAirlineLogoPath: _getAirlineLogoPath,
+              buildFallbackLogo: _buildFallbackLogo,
+            ),
+          ],
         ),
-      ],
-    ),
-  ),
-);
-}
+      ),
+    );
+  }
 
   Widget _buildFullRecordsCard(List<Flight> flights, Map<String, double> agencyDeductions) {
     return Card(
@@ -431,64 +273,6 @@ class SectorDetailsPage extends ConsumerWidget {
             ),
           )
         ],
-      ),
-    );
-  }
-
-  Widget _buildDatePicker(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        await showDateRangePicker(
-          context: context,
-          firstDate: DateTime.now().subtract(const Duration(days: 365)),
-          lastDate: DateTime.now().add(const Duration(days: 365)),
-          builder: (context, child) {
-            return Theme(
-              data: Theme.of(context).copyWith(
-                colorScheme: const ColorScheme.light(
-                  primary: AppColors.primaryBlue,
-                  onPrimary: AppColors.white,
-                  onSurface: AppColors.textBlack,
-                ),
-              ),
-              child: child!,
-            );
-          },
-        );
-      },
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.primaryBlue),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.calendar_today, size: 14, color: AppColors.primaryBlue),
-            SizedBox(width: 8),
-            Text('Select Date Range', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToggleButton(String text, {required bool isSelected}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.primaryBlue : AppColors.textGrey.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: isSelected ? AppColors.white : AppColors.textBlack,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 12,
-        ),
       ),
     );
   }

@@ -29,6 +29,7 @@ class FlightRepositoryImpl implements FlightRepository {
       seats: f.seats,
       marketedPrice: f.marketedPrice,
       parsedDate: f.parsedDate,
+      createdAt: f.createdAt ?? DateTime.now(),
     )).toList();
     return _remoteDataSource.saveFlights(flightModels, onProgress: onProgress);
   }
