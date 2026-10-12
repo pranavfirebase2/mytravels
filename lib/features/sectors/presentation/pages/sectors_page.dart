@@ -51,19 +51,67 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('All Sectors', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
-              Row(
-                children: [
-                  _buildDropdown('From', uniqueFroms, _selectedFrom, (val) => setState(() => _selectedFrom = val)),
-                  const SizedBox(width: 8),
-                  _buildDropdown('To', uniqueTos, _selectedTo, (val) => setState(() => _selectedTo = val)),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 250,
-                    child: TextField(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 750;
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'All Sectors',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
+                        if (_selectedFrom != null || _selectedTo != null || _searchQuery.isNotEmpty)
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _selectedFrom = null;
+                                _selectedTo = null;
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                            icon: const Icon(Icons.clear, size: 16),
+                            label: const Text('Clear All'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDropdown(
+                            'From',
+                            uniqueFroms,
+                            _selectedFrom,
+                            (val) => setState(() => _selectedFrom = val),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildDropdown(
+                            'To',
+                            uniqueTos,
+                            _selectedTo,
+                            (val) => setState(() => _selectedTo = val),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Search sector (e.g. CCJ DXB)',
@@ -71,31 +119,70 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                         filled: true,
                         fillColor: AppColors.white,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
                         prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
                       ),
                     ),
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'All Sectors',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
                   ),
-                  if (_selectedFrom != null || _selectedTo != null || _searchQuery.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _selectedFrom = null;
-                            _selectedTo = null;
-                            _searchController.clear();
-                            _searchQuery = '';
-                          });
-                        },
-                        icon: const Icon(Icons.clear, size: 16),
-                        label: const Text('Clear All'),
-                        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                  Row(
+                    children: [
+                      _buildDropdown('From', uniqueFroms, _selectedFrom, (val) => setState(() => _selectedFrom = val)),
+                      const SizedBox(width: 8),
+                      _buildDropdown('To', uniqueTos, _selectedTo, (val) => setState(() => _selectedTo = val)),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 250,
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search sector (e.g. CCJ DXB)',
+                            hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
+                            filled: true,
+                            fillColor: AppColors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (_selectedFrom != null || _selectedTo != null || _searchQuery.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _selectedFrom = null;
+                                _selectedTo = null;
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                            icon: const Icon(Icons.clear, size: 16),
+                            label: const Text('Clear All'),
+                            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           sectorsAsync.when(
@@ -132,7 +219,7 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 250,
-                  childAspectRatio: 2,
+                  mainAxisExtent: 118,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
@@ -146,7 +233,7 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                       onTap: () => context.go('/sector/${sector.src}/${sector.dst}'),
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
-                        padding: const EdgeInsets.all(12.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -155,27 +242,32 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                               children: [
                                 Text(
                                   sector.src,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryBlue),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.primaryBlue),
                                 ),
                                 const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: Icon(Icons.flight_takeoff, color: AppColors.iconBlue, size: 18),
+                                  padding: EdgeInsets.symmetric(horizontal: 6.0),
+                                  child: Icon(Icons.flight_takeoff, color: AppColors.iconBlue, size: 17),
                                 ),
                                 Text(
                                   sector.dst,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryBlue),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.primaryBlue),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${AppStrings.airportNames[sector.src] ?? sector.src} - ${AppStrings.airportNames[sector.dst] ?? sector.dst}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+                              style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Text(
                               sector.airlines.isEmpty ? 'Unknown' : sector.airlines.join(' · '),
                               style: const TextStyle(color: AppColors.textGrey, fontSize: 11, fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),

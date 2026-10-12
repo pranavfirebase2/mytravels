@@ -99,3 +99,4 @@ flutter:
   assets:
     - .env
     - assets/LOGO/
+    - assets/applogo/

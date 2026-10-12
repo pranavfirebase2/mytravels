@@ -6,11 +6,11 @@ class ResponsiveLayout extends StatelessWidget {
   final Widget desktop;
 
   const ResponsiveLayout({
-    Key? key,
+    super.key,
     required this.mobile,
     required this.tablet,
     required this.desktop,
-  }) : super(key: key);
+  });
 
   // This size works fine on my design, maybe you need some customization depends on your design
   static bool isMobile(BuildContext context) => MediaQuery.of(context).size.width < 650;

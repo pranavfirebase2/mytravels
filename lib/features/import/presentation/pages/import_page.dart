@@ -18,20 +18,29 @@ class ImportPage extends ConsumerStatefulWidget {
 }
 
 class _ImportPageState extends ConsumerState<ImportPage> {
+  int _selectedTab = 0; // 0: Market Fares (Standard), 1: Add-on
+
+  // Standard import controllers & state
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   String? _selectedAgencyId;
   String? _selectedAgencyName;
 
+  // Add-on controllers & state
+  final TextEditingController _addonController = TextEditingController();
+  String? _selectedAddonAgencyId;
+  String? _selectedAddonAgencyName;
+  String _selectedAddonCategory = 'Extra Baggage';
+
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _messageController.dispose();
     _timeController.dispose();
+    _addonController.dispose();
     super.dispose();
   }
-
-  bool _isLoading = false;
 
   void _showErrorDialog(String title, String message) {
     showDialog(
@@ -205,17 +214,139 @@ class _ImportPageState extends ConsumerState<ImportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 700;
+
     return AppLayout(
       activeRoute: '/import',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeaderCard(),
+          _buildTabBar(isMobile),
           const SizedBox(height: 16),
-          _buildImportCard(),
-          const SizedBox(height: 16),
-          _buildFooterCard(context),
+          if (_selectedTab == 0) ...[
+            _buildHeaderCard(),
+            const SizedBox(height: 16),
+            _buildImportCard(isMobile),
+            const SizedBox(height: 16),
+            _buildFooterCard(context, isMobile),
+          ] else ...[
+            _buildAddonHeaderCard(),
+            const SizedBox(height: 16),
+            _buildAddonImportCard(isMobile),
+            const SizedBox(height: 16),
+            _buildAddonGuideCard(isMobile),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar(bool isMobile) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton(
+              index: 0,
+              icon: Icons.upload_file_rounded,
+              title: isMobile ? 'Market Fares' : 'Market Fare Import',
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildTabButton(
+              index: 1,
+              icon: Icons.extension_rounded,
+              title: isMobile ? 'Add-on Import' : 'Add-on Data Import',
+              badge: 'Addon',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton({
+    required int index,
+    required IconData icon,
+    required String title,
+    String? badge,
+  }) {
+    final isSelected = _selectedTab == index;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(9),
+      onTap: () {
+        setState(() {
+          _selectedTab = index;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.headerDark : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.headerDark.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 19,
+              color: isSelected ? Colors.white : AppColors.buttonLightGrey,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                fontSize: 13,
+                color: isSelected ? Colors.white : AppColors.textBlack,
+              ),
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white.withValues(alpha: 0.25) : AppColors.primaryBlue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : AppColors.primaryBlue,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -223,7 +354,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   Widget _buildHeaderCard() {
     return Card(
       color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -231,44 +362,116 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           children: const [
             Text('Import Market Fare Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(height: 4),
-            Text('Select the agency from Agency Master. The same master name is used for starring and comparison deductions. Updated Time is optional.', style: TextStyle(color: AppColors.textGrey)),
+            Text(
+              'Select the agency from Agency Master. The same master name is used for starring and comparison deductions. Updated Time is optional.',
+              style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildImportCard() {
+  Widget _buildImportCard(bool isMobile) {
     return Card(
       color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: _messageController,
-              maxLines: 10,
-              decoration: const InputDecoration(
+              maxLines: 8,
+              decoration: InputDecoration(
                 hintText: 'Paste WhatsApp marketing text here...',
-                border: OutlineInputBorder(),
+                hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 13),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.all(14),
               ),
             ),
             const SizedBox(height: 16),
             ref.watch(agenciesStreamProvider).when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
               error: (e, st) => Text('Error: $e'),
               data: (agencies) {
+                if (isMobile) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: _selectedAgencyId,
+                        decoration: InputDecoration(
+                          labelText: 'Select Agency / Group',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.business_outlined, size: 20),
+                        ),
+                        hint: const Text('Select Agency / Group'),
+                        items: agencies.map((agency) {
+                          return DropdownMenuItem(
+                            value: agency.id,
+                            child: Text(agency.name),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedAgencyId = val;
+                            if (val != null) {
+                              _selectedAgencyName = agencies.firstWhere((a) => a.id == val).name;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _timeController,
+                        decoration: InputDecoration(
+                          labelText: 'Updated time (optional)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.schedule, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryBlue,
+                            foregroundColor: AppColors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _isLoading ? null : _importText,
+                          icon: _isLoading
+                              ? const SizedBox.shrink()
+                              : const Icon(Icons.cloud_upload_rounded),
+                          label: _isLoading 
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2))
+                            : const Text('Import Pasted Text', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
                 return Row(
                   children: [
                     Expanded(
                       flex: 2,
                       child: DropdownButtonFormField<String>(
                         value: _selectedAgencyId,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: InputDecoration(
+                          labelText: 'Select Agency / Group',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.business_outlined, size: 20),
                         ),
                         hint: const Text('Select Agency / Group'),
                         items: agencies.map((agency) {
@@ -287,29 +490,32 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       flex: 1,
                       child: TextField(
                         controller: _timeController,
-                        decoration: const InputDecoration(
-                          hintText: 'Updated time (optional)',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: InputDecoration(
+                          labelText: 'Updated time (optional)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.schedule, size: 20),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
+                    const SizedBox(width: 14),
+                    ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryBlue,
                         foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: _isLoading ? null : _importText,
-                      child: _isLoading 
+                      icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.cloud_upload_rounded),
+                      label: _isLoading 
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2))
-                        : const Text('Import Pasted Text'),
+                        : const Text('Import Pasted Text', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 );
@@ -321,34 +527,398 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     );
   }
 
-  Widget _buildFooterCard(BuildContext context) {
+  Widget _buildFooterCard(BuildContext context, bool isMobile) {
+    if (isMobile) {
+      return Card(
+        color: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  context.go('/agency');
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.storefront_rounded, size: 18, color: AppColors.headerDark),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Open Agency Master → Add agencies, edit deductions or star agencies',
+                          style: TextStyle(
+                            color: AppColors.linkPurple,
+                            decoration: TextDecoration.underline,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.buttonGrey,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  // Clear daily data action
+                },
+                icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+                label: const Text('Clear Daily Data'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton(
-              onPressed: () {
-                context.go('/agency');
-              },
-              child: const Text(
-                'Open Agency Master → Add agencies, edit deductions or star agencies',
-                style: TextStyle(color: AppColors.linkPurple, decoration: TextDecoration.underline),
+            Flexible(
+              child: TextButton.icon(
+                onPressed: () {
+                  context.go('/agency');
+                },
+                icon: const Icon(Icons.storefront_rounded, size: 18, color: AppColors.headerDark),
+                label: const Text(
+                  'Open Agency Master → Add agencies, edit deductions or star agencies',
+                  style: TextStyle(
+                    color: AppColors.linkPurple,
+                    decoration: TextDecoration.underline,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.buttonGrey,
                 foregroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () {
                 // Clear daily data action
               },
               child: const Text('Clear Daily Data'),
             )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Add-on Import Tab Widgets ---
+
+  Widget _buildAddonHeaderCard() {
+    return Card(
+      color: AppColors.cardBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.extension_rounded, color: AppColors.headerDark, size: 22),
+                const SizedBox(width: 8),
+                const Text(
+                  'Add-on Fare Import',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.headerDark.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Preview UI',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.headerDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Import ancillary flight services such as extra baggage, seat selection, meals, and agency service markups.',
+              style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddonImportCard(bool isMobile) {
+    final categories = ['Extra Baggage', 'Seat Selection', 'Meals & Food', 'Service Markups'];
+
+    return Card(
+      color: AppColors.cardBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Add-on Category',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: categories.map((cat) {
+                  final isSelected = _selectedAddonCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: FilterChip(
+                      selected: isSelected,
+                      label: Text(cat),
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? Colors.white : AppColors.buttonGrey,
+                      ),
+                      selectedColor: AppColors.headerDark,
+                      backgroundColor: Colors.grey.withValues(alpha: 0.1),
+                      showCheckmark: false,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      onSelected: (val) {
+                        setState(() {
+                          _selectedAddonCategory = cat;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _addonController,
+              maxLines: 8,
+              decoration: InputDecoration(
+                hintText: 'Paste WhatsApp add-on message or auxiliary pricing here...\nExample:\nCCJ DXB Extra 20KG Baggage: ₹1,500\nCCJ RUH Meal Selection: ₹400\nCCJ DOH Front Row Seat: ₹600',
+                hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 13),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.all(14),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ref.watch(agenciesStreamProvider).when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (e, st) => Text('Error: $e'),
+              data: (agencies) {
+                if (isMobile) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: _selectedAddonAgencyId,
+                        decoration: InputDecoration(
+                          labelText: 'Select Agency / Group',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.business_outlined, size: 20),
+                        ),
+                        hint: const Text('Select Agency / Group'),
+                        items: agencies.map((agency) {
+                          return DropdownMenuItem(
+                            value: agency.id,
+                            child: Text(agency.name),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedAddonAgencyId = val;
+                            if (val != null) {
+                              _selectedAddonAgencyName = agencies.firstWhere((a) => a.id == val).name;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.headerDark,
+                            foregroundColor: AppColors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () {
+                            if (_addonController.text.trim().isEmpty) {
+                              _showErrorDialog('Missing Information', 'Please paste add-on text first.');
+                              return;
+                            }
+                            if (_selectedAddonAgencyId == null) {
+                              _showErrorDialog('Agency Required', 'Please select an agency before importing.');
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Add-on data captured for $_selectedAddonCategory (${_selectedAddonAgencyName ?? 'Agency'})! Ready for parser integration.'),
+                                backgroundColor: AppColors.headerDark,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.playlist_add_check_rounded),
+                          label: const Text('Import Add-on Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedAddonAgencyId,
+                        decoration: InputDecoration(
+                          labelText: 'Select Agency / Group',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.business_outlined, size: 20),
+                        ),
+                        hint: const Text('Select Agency / Group'),
+                        items: agencies.map((agency) {
+                          return DropdownMenuItem(
+                            value: agency.id,
+                            child: Text(agency.name),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedAddonAgencyId = val;
+                            if (val != null) {
+                              _selectedAddonAgencyName = agencies.firstWhere((a) => a.id == val).name;
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.headerDark,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        if (_addonController.text.trim().isEmpty) {
+                          _showErrorDialog('Missing Information', 'Please paste add-on text first.');
+                          return;
+                        }
+                        if (_selectedAddonAgencyId == null) {
+                          _showErrorDialog('Agency Required', 'Please select an agency before importing.');
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Add-on data captured for $_selectedAddonCategory (${_selectedAddonAgencyName ?? 'Agency'})! Ready for parser integration.'),
+                            backgroundColor: AppColors.headerDark,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.playlist_add_check_rounded),
+                      label: const Text('Import Add-on Data', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddonGuideCard(bool isMobile) {
+    final sampleRules = [
+      {'title': 'Extra Baggage', 'example': 'Sector + Airline + Baggage weight (e.g. CCJ DXB IX 20KG: ₹1,500)'},
+      {'title': 'Seat Selection', 'example': 'Preferred seating or extra legroom rows (e.g. Front Row +₹600)'},
+      {'title': 'Meal Add-ons', 'example': 'Pre-booked in-flight hot meals / refreshments (e.g. Non-Veg Meal +₹450)'},
+    ];
+
+    return Card(
+      color: AppColors.cardBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lightbulb_outline_rounded, color: AppColors.primaryBlue, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Supported Add-on Structures (Upcoming Feature)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...sampleRules.map((r) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 6, right: 8),
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primaryBlue,
+                    ),
+                  ),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 12, color: AppColors.textBlack),
+                        children: [
+                          TextSpan(text: '${r['title']!}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: r['example']!, style: const TextStyle(color: AppColors.textGrey)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
           ],
         ),
       ),

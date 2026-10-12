@@ -81,7 +81,8 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
   @override
   void didUpdateWidget(SectorComparisonTable oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dates.length != widget.dates.length) {
+    if (oldWidget.dates.length != widget.dates.length ||
+        oldWidget.dates.join(',') != widget.dates.join(',')) {
       _group.dispose();
       _initControllers();
     }
@@ -278,10 +279,15 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 10),
+                                                const SizedBox(height: 8),
                                                 Text(
-                                                  '${widget.src} - ${widget.dst} (${AppStrings.airportNames[widget.src] ?? widget.src} - ${AppStrings.airportNames[widget.dst] ?? widget.dst})',
-                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textBlack),
+                                                  '${widget.src} - ${widget.dst}',
+                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  '${AppStrings.airportNames[widget.src] ?? widget.src} - ${AppStrings.airportNames[widget.dst] ?? widget.dst}',
+                                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.textGrey),
                                                 ),
                                                 const SizedBox(height: 2),
                                                 Text('${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}', style: const TextStyle(fontSize: 9, color: AppColors.textGrey)),
