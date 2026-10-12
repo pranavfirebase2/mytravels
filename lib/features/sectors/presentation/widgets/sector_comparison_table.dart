@@ -44,6 +44,7 @@ class SectorComparisonTable extends StatefulWidget {
   final String dst;
   final String? Function(String) getAirlineLogoPath;
   final Widget Function(String) buildFallbackLogo;
+  final void Function(Flight flight, double adjustedPrice, double deduction)? onFlightTap;
 
   const SectorComparisonTable({
     super.key,
@@ -55,6 +56,7 @@ class SectorComparisonTable extends StatefulWidget {
     required this.dst,
     required this.getAirlineLogoPath,
     required this.buildFallbackLogo,
+    this.onFlightTap,
   });
 
   @override
@@ -218,82 +220,91 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
 
                                         return Padding(
                                           padding: const EdgeInsets.only(bottom: 12.0),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: isLowest ? Colors.green.withValues(alpha: 0.1) : AppColors.cardBackground,
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: widget.onFlightTap != null
+                                                  ? () => widget.onFlightTap!(f, adjustedPrice, ded)
+                                                  : null,
                                               borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(
-                                                color: isLowest ? Colors.green : AppColors.primaryBlue.withValues(alpha: 0.2),
-                                                width: isLowest ? 2 : 1,
-                                              ),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                if (f.createdAt != null) ...[
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(bottom: 4.0),
-                                                    child: Row(
-                                                      children: [
-                                                        const Icon(Icons.access_time, size: 10, color: AppColors.textGrey),
-                                                        const SizedBox(width: 4),
-                                                        Expanded(
-                                                          child: Text(
-                                                            _formatDateTime(f.createdAt!),
-                                                            style: const TextStyle(
-                                                              fontSize: 9,
-                                                              color: AppColors.textGrey,
-                                                              fontWeight: FontWeight.w500,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: isLowest ? Colors.green.withValues(alpha: 0.1) : AppColors.cardBackground,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: isLowest ? Colors.green : AppColors.primaryBlue.withValues(alpha: 0.2),
+                                                    width: isLowest ? 2 : 1,
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    if (f.createdAt != null) ...[
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(bottom: 4.0),
+                                                        child: Row(
+                                                          children: [
+                                                            const Icon(Icons.access_time, size: 10, color: AppColors.textGrey),
+                                                            const SizedBox(width: 4),
+                                                            Expanded(
+                                                              child: Text(
+                                                                _formatDateTime(f.createdAt!),
+                                                                style: const TextStyle(
+                                                                  fontSize: 9,
+                                                                  color: AppColors.textGrey,
+                                                                  fontWeight: FontWeight.w500,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
                                                             ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    Row(
+                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Builder(
+                                                          builder: (context) {
+                                                            final logoPath = widget.getAirlineLogoPath(f.airline);
+                                                            if (logoPath != null) {
+                                                              return Image.asset(
+                                                                logoPath,
+                                                                width: 60,
+                                                                height: 36,
+                                                                fit: BoxFit.contain,
+                                                                errorBuilder: (context, error, stackTrace) => widget.buildFallbackLogo(f.airline),
+                                                              );
+                                                            }
+                                                            return widget.buildFallbackLogo(f.airline);
+                                                          },
+                                                        ),
+                                                        Text(
+                                                          '₹${adjustedPrice.toInt()}',
+                                                          style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
                                                         ),
                                                       ],
                                                     ),
-                                                  ),
-                                                ],
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Builder(
-                                                      builder: (context) {
-                                                        final logoPath = widget.getAirlineLogoPath(f.airline);
-                                                        if (logoPath != null) {
-                                                          return Image.asset(
-                                                            logoPath,
-                                                            width: 60,
-                                                            height: 36,
-                                                            fit: BoxFit.contain,
-                                                            errorBuilder: (context, error, stackTrace) => widget.buildFallbackLogo(f.airline),
-                                                          );
-                                                        }
-                                                        return widget.buildFallbackLogo(f.airline);
-                                                      },
-                                                    ),
+                                                    const SizedBox(height: 8),
                                                     Text(
-                                                      '₹${adjustedPrice.toInt()}',
-                                                      style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+                                                      '${widget.src} - ${widget.dst}',
+                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textBlack),
                                                     ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      '${AppStrings.airportNames[widget.src] ?? widget.src} - ${AppStrings.airportNames[widget.dst] ?? widget.dst}',
+                                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.textGrey),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text('${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}', style: const TextStyle(fontSize: 9, color: AppColors.textGrey)),
+                                                    const SizedBox(height: 2),
+                                                    Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  '${widget.src} - ${widget.dst}',
-                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textBlack),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  '${AppStrings.airportNames[widget.src] ?? widget.src} - ${AppStrings.airportNames[widget.dst] ?? widget.dst}',
-                                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.textGrey),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text('${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}', style: const TextStyle(fontSize: 9, color: AppColors.textGrey)),
-                                                const SizedBox(height: 2),
-                                                Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
-                                              ],
+                                              ),
                                             ),
                                           ),
                                         );

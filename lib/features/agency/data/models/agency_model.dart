@@ -6,6 +6,7 @@ class AgencyModel extends Agency {
     required super.name,
     required super.comparisonDeduction,
     required super.isStarred,
+    super.whatsappNumber = '',
   });
 
   factory AgencyModel.fromJson(Map<String, dynamic> json) {
@@ -14,6 +15,7 @@ class AgencyModel extends Agency {
       name: json['name'] ?? '',
       comparisonDeduction: (json['comparisonDeduction'] ?? 0.0).toDouble(),
       isStarred: json['isStarred'] ?? false,
+      whatsappNumber: (json['whatsappNumber'] ?? json['whatsapp_number'] ?? json['phone'] ?? '').toString(),
     );
   }
 
@@ -23,6 +25,7 @@ class AgencyModel extends Agency {
       'name': name,
       'comparisonDeduction': comparisonDeduction,
       'isStarred': isStarred,
+      'whatsappNumber': whatsappNumber,
     };
   }
 
@@ -32,6 +35,7 @@ class AgencyModel extends Agency {
       name: entity.name,
       comparisonDeduction: entity.comparisonDeduction,
       isStarred: entity.isStarred,
+      whatsappNumber: entity.whatsappNumber,
     );
   }
 }

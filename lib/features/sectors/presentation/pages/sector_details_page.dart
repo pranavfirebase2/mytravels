@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/widgets/app_layout.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../flights/presentation/providers/flight_providers.dart';
-import '../../../flights/domain/entities/flight.dart';
+import '../../../agency/domain/entities/agency.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
-import '../widgets/sector_comparison_table.dart';
+import '../../../flights/domain/entities/flight.dart';
+import '../../../flights/presentation/providers/flight_providers.dart';
+import '../../../flights/presentation/widgets/flight_inquiry_dialog.dart';
 import '../widgets/flight_date_picker_dialog.dart';
+import '../widgets/sector_comparison_table.dart';
 
 class SectorDetailsPage extends ConsumerStatefulWidget {
   final String src;
@@ -107,6 +110,8 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
               // Sort filteredFlights by date as well for the full records table
               filteredFlights.sort((a, b) => _compareDates(a.date, b.date));
 
+              final Map<String, Agency> agencyMap = {for (var a in allAgencies) a.name: a};
+
               return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -120,9 +125,10 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
                       filteredFlights,
                       sectorFlights,
                       agencyDeductions,
+                      agencyMap,
                     ),
                     const SizedBox(height: 16),
-                    _buildFullRecordsCard(filteredFlights, agencyDeductions),
+                    _buildFullRecordsCard(filteredFlights, agencyDeductions, agencyMap, src, dst),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -339,6 +345,7 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
     List<Flight> displayFlights,
     List<Flight> allSectorFlights,
     Map<String, double> agencyDeductions,
+    Map<String, Agency> agencyMap,
   ) {
     return Card(
       color: AppColors.white,
@@ -474,6 +481,18 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
                 dst: dst,
                 getAirlineLogoPath: _getAirlineLogoPath,
                 buildFallbackLogo: _buildFallbackLogo,
+                onFlightTap: (flight, adjustedPrice, ded) {
+                  showFlightInquiryDialog(
+                    context: context,
+                    ref: ref,
+                    flight: flight,
+                    agency: agencyMap[flight.agencyName],
+                    adjustedPrice: adjustedPrice,
+                    deduction: ded,
+                    src: src,
+                    dst: dst,
+                  );
+                },
               ),
           ],
         ),
@@ -481,7 +500,13 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
     );
   }
 
-  Widget _buildFullRecordsCard(List<Flight> flights, Map<String, double> agencyDeductions) {
+  Widget _buildFullRecordsCard(
+    List<Flight> flights,
+    Map<String, double> agencyDeductions,
+    Map<String, Agency> agencyMap,
+    String src,
+    String dst,
+  ) {
     return Card(
       color: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -492,6 +517,7 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
+              showCheckboxColumn: false,
               headingRowColor: WidgetStateProperty.all(AppColors.cardBackground),
               columns: const [
                 DataColumn(label: Text('Trust', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -512,6 +538,18 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
                 final comparisonFare = f.marketedPrice - deduction;
 
                 return DataRow(
+                  onSelectChanged: (_) {
+                    showFlightInquiryDialog(
+                      context: context,
+                      ref: ref,
+                      flight: f,
+                      agency: agencyMap[f.agencyName],
+                      adjustedPrice: comparisonFare,
+                      deduction: deduction,
+                      src: src,
+                      dst: dst,
+                    );
+                  },
                   cells: [
                     const DataCell(Icon(Icons.star, color: Colors.green, size: 16)),
                     DataCell(Text(f.agencyName, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -534,4 +572,6 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
       ),
     );
   }
+
 }
+

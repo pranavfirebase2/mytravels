@@ -114,7 +114,7 @@ class AppLayout extends StatelessWidget {
         children: [
           Image.asset(
             'assets/applogo/3.png',
-            height: isMobile ? 32 : 36,
+            height: isMobile ? 32 : 45,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => const Icon(
               Icons.flight_takeoff_rounded,

@@ -32,6 +32,7 @@ class AgencyRemoteDataSourceImpl implements AgencyRemoteDataSource {
         name: agency.name,
         comparisonDeduction: agency.comparisonDeduction,
         isStarred: agency.isStarred,
+        whatsappNumber: agency.whatsappNumber,
       );
       await docRef.set(agencyWithId.toJson());
     } catch (e) {
