@@ -108,6 +108,25 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
     return '$day $month, $hour12:$minute $period';
   }
 
+  bool _isFlightOutdated(DateTime? createdAt) {
+    if (createdAt == null) return true;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final createdDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+
+    // If 2 or more days old, always outdated
+    if (today.difference(createdDate).inDays >= 2) {
+      return true;
+    }
+
+    // Daily 11:00 AM cutoff: after 11:00 AM today, any fare not updated today is outdated
+    if (now.hour >= 11 && createdDate.isBefore(today)) {
+      return true;
+    }
+
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     const double dateColWidth = 120.0;
@@ -240,29 +259,54 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    if (f.createdAt != null) ...[
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(bottom: 4.0),
-                                                        child: Row(
-                                                          children: [
-                                                            const Icon(Icons.access_time, size: 10, color: AppColors.textGrey),
-                                                            const SizedBox(width: 4),
-                                                            Expanded(
-                                                              child: Text(
-                                                                _formatDateTime(f.createdAt!),
-                                                                style: const TextStyle(
-                                                                  fontSize: 9,
-                                                                  color: AppColors.textGrey,
-                                                                  fontWeight: FontWeight.w500,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
+                                                    Builder(
+                                                      builder: (context) {
+                                                        final isOutdated = _isFlightOutdated(f.createdAt);
+                                                        if (f.createdAt == null) return const SizedBox.shrink();
+                                                        return Padding(
+                                                          padding: const EdgeInsets.only(bottom: 4.0),
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons.access_time_rounded,
+                                                                size: 11,
+                                                                color: isOutdated ? Colors.redAccent : AppColors.textGrey,
                                                               ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ],
+                                                              const SizedBox(width: 4),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  _formatDateTime(f.createdAt!),
+                                                                  style: TextStyle(
+                                                                    fontSize: 9.5,
+                                                                    color: isOutdated ? Colors.redAccent : AppColors.textGrey,
+                                                                    fontWeight: isOutdated ? FontWeight.bold : FontWeight.w500,
+                                                                  ),
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                              ),
+                                                              if (isOutdated) ...[
+                                                                Container(
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors.redAccent.withValues(alpha: 0.12),
+                                                                    borderRadius: BorderRadius.circular(3),
+                                                                  ),
+                                                                  child: const Text(
+                                                                    'Old',
+                                                                    style: TextStyle(
+                                                                      fontSize: 8,
+                                                                      fontWeight: FontWeight.bold,
+                                                                      color: Colors.redAccent,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ],
+                                                          ),
+                                                        );
+                                                      },
+                                                    ),
                                                     Row(
                                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                       crossAxisAlignment: CrossAxisAlignment.start,

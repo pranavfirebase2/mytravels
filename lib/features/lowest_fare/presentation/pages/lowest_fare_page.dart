@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,11 +22,21 @@ class LowestFarePage extends ConsumerStatefulWidget {
 class _LowestFarePageState extends ConsumerState<LowestFarePage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounceTimer;
+
   String _searchQuery = '';
   String _selectedFilter = 'Entire data';
   int _scrollLimit = 25;
   int _totalAvailableRanked = 0;
   bool _isLoadingMore = false;
+
+  // Cached computation to avoid heavy re-filtering on scroll or rebuild
+  List<Flight>? _lastFlights;
+  List<dynamic>? _lastAgencies;
+  String? _lastQuery;
+  String? _lastFilter;
+  List<_RankedFlightItem> _cachedRankedItems = [];
+  Map<String, Agency> _cachedAgencyMap = {};
 
   final List<String> _filters = [
     'Entire data',
@@ -41,22 +52,33 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.trim().toLowerCase();
-        _scrollLimit = 25;
-        _isLoadingMore = false;
-      });
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(0);
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+      final q = _searchController.text.trim().toLowerCase();
+      if (q != _searchQuery) {
+        setState(() {
+          _searchQuery = q;
+          _scrollLimit = 25;
+          _isLoadingMore = false;
+        });
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
       }
     });
   }
 
   void _onScroll() {
-    if (_scrollController.hasClients) {
-      final pos = _scrollController.position;
-      if (pos.pixels >= pos.maxScrollExtent - 350) {
+    if (!_scrollController.hasClients || _isLoadingMore) return;
+    final pos = _scrollController.position;
+    // Load next page when user scrolls within 250px of the bottom
+    if (pos.pixels >= pos.maxScrollExtent - 250) {
+      if (_scrollLimit < _totalAvailableRanked) {
         _loadMore();
       }
     }
@@ -68,7 +90,7 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
       setState(() {
         _isLoadingMore = true;
       });
-      Future.delayed(const Duration(milliseconds: 350), () {
+      Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted) {
           setState(() {
             _scrollLimit = (_scrollLimit + 25).clamp(0, _totalAvailableRanked);
@@ -81,8 +103,10 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -176,101 +200,66 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
     return AppLayout(
       activeRoute: '/lowest-fare',
       disableScroll: true,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification scrollInfo) {
-          if (scrollInfo.metrics.axis == Axis.vertical) {
-            if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 350) {
-              _loadMore();
-            }
-          }
-          return false;
-        },
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeaderCard(context, isMobile),
-              const SizedBox(height: 16),
-              _buildSearchCard(isMobile),
-              const SizedBox(height: 16),
-              flightsAsync.when(
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(48.0),
-                    child: CircularProgressIndicator(),
-                  ),
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeaderCard(context, isMobile),
+            const SizedBox(height: 16),
+            _buildSearchCard(isMobile),
+            const SizedBox(height: 16),
+            flightsAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(48.0),
+                  child: CircularProgressIndicator(),
                 ),
-                error: (err, st) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Text('Error loading flights: $err', style: const TextStyle(color: AppColors.errorRed)),
-                  ),
-                ),
-                data: (allFlights) {
-                  return agenciesAsync.when(
-                    loading: () => const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(48.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                    error: (err, st) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Text('Error loading agencies: $err', style: const TextStyle(color: AppColors.errorRed)),
-                      ),
-                    ),
-                    data: (allAgencies) {
-                      return _buildContent(allFlights, allAgencies, isMobile);
-                    },
-                  );
-                },
               ),
-            ],
-          ),
+              error: (err, st) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text('Error loading flights: $err', style: const TextStyle(color: AppColors.errorRed)),
+                ),
+              ),
+              data: (allFlights) {
+                return agenciesAsync.when(
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(48.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (err, st) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Text('Error loading agencies: $err', style: const TextStyle(color: AppColors.errorRed)),
+                    ),
+                  ),
+                  data: (allAgencies) {
+                    return _buildContent(allFlights, allAgencies, isMobile);
+                  },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildContent(List<Flight> allFlights, List<dynamic> allAgencies, bool isMobile) {
-    if (allFlights.isEmpty) {
-      return Card(
-        color: AppColors.cardBackground,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(48.0),
-          child: Column(
-            children: [
-              const Icon(Icons.flight_outlined, size: 54, color: AppColors.textGrey),
-              const SizedBox(height: 14),
-              const Text(
-                'No flight records in database',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textBlack),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Import market fare files to start searching lowest fares.',
-                style: TextStyle(color: AppColors.textGrey, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => context.go('/import'),
-                icon: const Icon(Icons.upload_file_rounded, size: 18),
-                label: const Text('Go to Import', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      );
+  void _recomputeRankedItems(List<Flight> allFlights, List<dynamic> allAgencies) {
+    if (identical(_lastFlights, allFlights) &&
+        identical(_lastAgencies, allAgencies) &&
+        _lastQuery == _searchQuery &&
+        _lastFilter == _selectedFilter) {
+      return;
     }
+
+    _lastFlights = allFlights;
+    _lastAgencies = allAgencies;
+    _lastQuery = _searchQuery;
+    _lastFilter = _selectedFilter;
 
     // Build agency maps
     final Map<String, double> agencyDeductions = {};
@@ -283,6 +272,7 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
         agencyStarredMap[a.name] = a.isStarred;
       }
     }
+    _cachedAgencyMap = agencyMap;
 
     // Pre-calculate date references once (O(N) instead of O(N^2))
     final now = DateTime.now();
@@ -344,7 +334,7 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
         if (src == 'bom' || dst == 'bom') aliases += ' mumbai bombay';
         if (src == 'blr' || dst == 'blr') aliases += ' bangalore bengaluru';
 
-        final searchable = '$src $dst $airportSrc $airportDst $src$dst $src $dst $airline $airlineName $airline$flightNum $airline $flightNum $flightNum $agency $date $timing $baggage $seats $price$aliases';
+        final searchable = '$src $dst $airportSrc $airportDst $src$dst $airline $airlineName $airline$flightNum $flightNum $agency $date $timing $baggage $seats $price$aliases';
 
         for (final token in queryTokens) {
           if (!searchable.contains(token)) {
@@ -376,7 +366,52 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
     // Sort by adjusted price ascending (Lowest fare first)
     rankedItems.sort((a, b) => a.adjustedPrice.compareTo(b.adjustedPrice));
 
+    _cachedRankedItems = rankedItems;
     _totalAvailableRanked = rankedItems.length;
+  }
+
+  Widget _buildContent(List<Flight> allFlights, List<dynamic> allAgencies, bool isMobile) {
+    if (allFlights.isEmpty) {
+      return Card(
+        color: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(48.0),
+          child: Column(
+            children: [
+              const Icon(Icons.flight_outlined, size: 54, color: AppColors.textGrey),
+              const SizedBox(height: 14),
+              const Text(
+                'No flight records in database',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Import market fare files to start searching lowest fares.',
+                style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => context.go('/import'),
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
+                label: const Text('Go to Import', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    _recomputeRankedItems(allFlights, allAgencies);
+
+    final rankedItems = _cachedRankedItems;
+    final agencyMap = _cachedAgencyMap;
 
     // Summary metrics
     final totalResults = rankedItems.length;
@@ -924,7 +959,7 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
               // Scroll Loading Footer
               const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
                 child: Center(
                   child: _isLoadingMore
                       ? Row(
@@ -934,7 +969,7 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
+                                strokeWidth: 2.2,
                                 color: AppColors.primaryBlue,
                               ),
                             ),
@@ -950,18 +985,12 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
                           ],
                         )
                       : (hasMore
-                          ? OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primaryBlue,
-                                side: BorderSide(color: AppColors.primaryBlue.withValues(alpha: 0.35)),
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: _loadMore,
-                              icon: const Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.primaryBlue),
-                              label: Text(
-                                'Showing ${displayedItems.length} of ${items.length} flights · Scroll down to load more',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ? Text(
+                              'Showing ${displayedItems.length} of ${items.length} flights · Scroll down to load more',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.textGrey,
+                                fontWeight: FontWeight.w500,
                               ),
                             )
                           : Text(

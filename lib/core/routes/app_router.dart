@@ -8,8 +8,12 @@ import '../../features/sectors/presentation/pages/sector_details_page.dart';
 
 class AppRouter {
   static final router = GoRouter(
-    initialLocation: '/lowest-fare', // Previewing lowest fare
+    initialLocation: '/sectors',
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (context, state) => '/sectors',
+      ),
       GoRoute(
         path: '/sectors',
         builder: (context, state) => const SectorsPage(),
