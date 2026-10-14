@@ -25,6 +25,8 @@ class _AgencyDataPageState extends ConsumerState<AgencyDataPage> {
   Future<void> _deleteFlight(String flightId) async {
     try {
       await ref.read(agencyFlightsProvider.notifier).deleteFlight(flightId, _selectedAgencyId!);
+      ref.invalidate(allFlightsProvider);
+      ref.invalidate(sectorsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Flight deleted successfully'), backgroundColor: AppColors.successGreen));
       }
@@ -63,6 +65,8 @@ class _AgencyDataPageState extends ConsumerState<AgencyDataPage> {
     if (_selectedAgencyId == null) return;
     try {
       await ref.read(agencyFlightsProvider.notifier).deleteAllFlights(_selectedAgencyId!);
+      ref.invalidate(allFlightsProvider);
+      ref.invalidate(sectorsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All flights for this agency deleted successfully'), backgroundColor: AppColors.successGreen));
       }
@@ -100,11 +104,7 @@ class _AgencyDataPageState extends ConsumerState<AgencyDataPage> {
   Map<String, List<Flight>> _groupFlights(List<Flight> flights) {
     final grouped = <String, List<Flight>>{};
     for (var flight in flights) {
-      final airline = flight.airline.isNotEmpty ? flight.airline : '';
-      final flightNum = flight.flightNumber.isNotEmpty && flight.flightNumber != '—' ? flight.flightNumber : '';
-      final baggage = flight.baggage.isNotEmpty ? '(${flight.baggage})' : '';
-      
-      final key = '${flight.source} ${flight.destination} $airline $flightNum $baggage'.trim().replaceAll(RegExp(r'\s+'), ' ');
+      final key = '${flight.source} ➝ ${flight.destination}';
       
       if (!grouped.containsKey(key)) {
         grouped[key] = [];
@@ -231,25 +231,55 @@ class _AgencyDataPageState extends ConsumerState<AgencyDataPage> {
                                       padding: const EdgeInsets.all(12.0),
                                       child: Table(
                                         columnWidths: const {
-                                          0: FlexColumnWidth(2),
-                                          1: FlexColumnWidth(3),
-                                          2: IntrinsicColumnWidth(),
+                                          0: FlexColumnWidth(2.0),
+                                          1: FlexColumnWidth(2.3),
+                                          2: FlexColumnWidth(2.2),
+                                          3: IntrinsicColumnWidth(),
                                         },
                                         children: groupFlights.map((f) {
+                                          final hasFlightInfo = (f.airline.isNotEmpty && f.airline != '—') || (f.flightNumber.isNotEmpty && f.flightNumber != '—');
+                                          final flightText = [
+                                            if (f.airline.isNotEmpty && f.airline != '—') f.airline,
+                                            if (f.flightNumber.isNotEmpty && f.flightNumber != '—') f.flightNumber,
+                                          ].join(' ');
+
+                                          final extraDetails = [
+                                            if (f.timing.isNotEmpty && f.timing != '—') f.timing,
+                                            if (f.baggage.isNotEmpty && f.baggage != '—') f.baggage,
+                                          ].join(' • ');
+
                                           return TableRow(
                                             children: [
                                               Padding(
-                                                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
-                                                child: Text(f.date, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                                padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4),
+                                                child: Text(f.date, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                                               ),
                                               Padding(
-                                                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
-                                                child: Text('₹${f.marketedPrice.toInt()}/-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textBlack, fontSize: 15)),
+                                                padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      hasFlightInfo ? flightText : '—',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryBlue),
+                                                    ),
+                                                    if (extraDetails.isNotEmpty)
+                                                      Text(
+                                                        extraDetails,
+                                                        style: const TextStyle(fontSize: 10, color: AppColors.textGrey),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4),
+                                                child: Text('₹${f.marketedPrice.toInt()}/-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textBlack, fontSize: 13)),
                                               ),
                                               Align(
                                                 alignment: Alignment.centerRight,
                                                 child: IconButton(
-                                                  icon: const Icon(Icons.delete_outline, color: AppColors.errorRed, size: 22),
+                                                  icon: const Icon(Icons.delete_outline, color: AppColors.errorRed, size: 20),
                                                   onPressed: () => _confirmDelete(f),
                                                   tooltip: 'Delete Flight',
                                                 ),

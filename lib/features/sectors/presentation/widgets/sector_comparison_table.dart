@@ -28,6 +28,25 @@ class SyncScrollControllerGroup {
     return controller;
   }
 
+  Future<void> animateTo(
+    double offset, {
+    Duration duration = const Duration(milliseconds: 350),
+    Curve curve = Curves.easeInOutCubic,
+  }) async {
+    ScrollController? active;
+    for (var c in _controllers) {
+      if (c.hasClients) {
+        active = c;
+        break;
+      }
+    }
+    if (active != null) {
+      final maxExtent = active.position.maxScrollExtent;
+      final target = offset.clamp(0.0, maxExtent);
+      await active.animateTo(target, duration: duration, curve: curve);
+    }
+  }
+
   void dispose() {
     for (var c in _controllers) {
       c.dispose();
@@ -127,9 +146,17 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
     return false;
   }
 
+  void _scrollToAgency(String agencyName) {
+    final idx = widget.agencies.indexOf(agencyName);
+    if (idx != -1) {
+      const double agencyColWidth = 180.0;
+      _group.animateTo(idx * agencyColWidth);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    const double dateColWidth = 120.0;
+    const double dateColWidth = 135.0;
     const double agencyColWidth = 180.0;
 
     return Container(
@@ -187,11 +214,23 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
           children: List.generate(widget.dates.length, (index) {
             final date = widget.dates[index];
             final flightsForDate = widget.flights.where((f) => f.date == date).toList();
-            double minPriceForDate = double.infinity;
+
+            // Calculate distinct prices for this date to determine Rank 1 (Lowest) & Rank 2 (Second lowest)
+            final sortedPrices = <double>{};
             for (var f in flightsForDate) {
               final price = f.marketedPrice - (widget.agencyDeductions[f.agencyName] ?? 0);
-              if (price < minPriceForDate) minPriceForDate = price;
+              sortedPrices.add(price);
             }
+            final priceList = sortedPrices.toList()..sort();
+            final double? minPriceForDate = priceList.isNotEmpty ? priceList.first : null;
+            final double? secondMinPriceForDate = priceList.length > 1 ? priceList[1] : null;
+
+            // Find agencies offering the lowest price on this date
+            final lowestAgencies = flightsForDate
+                .where((f) => (f.marketedPrice - (widget.agencyDeductions[f.agencyName] ?? 0)) == minPriceForDate)
+                .map((f) => f.agencyName)
+                .toSet()
+                .toList();
 
             return IntrinsicHeight(
               child: Row(
@@ -199,7 +238,7 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                 children: [
                   Container(
                     width: dateColWidth,
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 12.0),
                     decoration: BoxDecoration(
                       color: AppColors.white,
                       border: Border(
@@ -207,7 +246,139 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                         bottom: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.1)),
                       ),
                     ),
-                    child: Text(date, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          date,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        if (lowestAgencies.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          if (lowestAgencies.length == 1)
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _scrollToAgency(lowestAgencies.first),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Tooltip(
+                                  message: 'Tap to view ${lowestAgencies.first}',
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: Colors.green.withValues(alpha: 0.35),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.star, size: 10, color: Colors.green),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            lowestAgencies.first,
+                                            style: const TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF1B5E20),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        const Icon(Icons.chevron_right_rounded, size: 12, color: Color(0xFF1B5E20)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: [
+                                ...lowestAgencies.take(2).map((agency) {
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => _scrollToAgency(agency),
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Tooltip(
+                                        message: 'Tap to view $agency',
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: Colors.green.withValues(alpha: 0.35),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.star, size: 9, color: Colors.green),
+                                              const SizedBox(width: 3),
+                                              ConstrainedBox(
+                                                constraints: const BoxConstraints(maxWidth: 85),
+                                                child: Text(
+                                                  agency,
+                                                  style: const TextStyle(
+                                                    fontSize: 9.0,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF1B5E20),
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                                if (lowestAgencies.length > 2)
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => _scrollToAgency(lowestAgencies[2]),
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2.5),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: Colors.green.withValues(alpha: 0.35),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '+${lowestAgencies.length - 2}',
+                                          style: const TextStyle(
+                                            fontSize: 9.0,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1B5E20),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ],
+                    ),
                   ),
                   Expanded(
                     child: Container(
@@ -235,7 +406,36 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                       children: flightOptions.map((f) {
                                         final ded = widget.agencyDeductions[f.agencyName] ?? 0;
                                         final adjustedPrice = f.marketedPrice - ded;
-                                        final isLowest = adjustedPrice == minPriceForDate;
+                                        final isLowest = minPriceForDate != null && adjustedPrice == minPriceForDate;
+                                        final isSecondLowest = secondMinPriceForDate != null && adjustedPrice == secondMinPriceForDate;
+                                        final isOutdated = _isFlightOutdated(f.createdAt);
+
+                                        final Color borderColor;
+                                        final double borderWidth;
+                                        final Color cardBg;
+                                        final Color priceColor;
+
+                                        if (isOutdated) {
+                                          borderColor = Colors.redAccent;
+                                          borderWidth = (isLowest || isSecondLowest) ? 2.0 : 1.5;
+                                          cardBg = Colors.redAccent.withValues(alpha: 0.04);
+                                          priceColor = Colors.red.shade900;
+                                        } else if (isLowest) {
+                                          borderColor = Colors.green;
+                                          borderWidth = 2.0;
+                                          cardBg = Colors.green.withValues(alpha: 0.10);
+                                          priceColor = const Color(0xFF1B5E20);
+                                        } else if (isSecondLowest) {
+                                          borderColor = Colors.amber.shade700;
+                                          borderWidth = 2.0;
+                                          cardBg = Colors.amber.withValues(alpha: 0.08);
+                                          priceColor = const Color(0xFFB45309);
+                                        } else {
+                                          borderColor = AppColors.primaryBlue.withValues(alpha: 0.2);
+                                          borderWidth = 1.0;
+                                          cardBg = AppColors.cardBackground;
+                                          priceColor = Colors.black;
+                                        }
 
                                         return Padding(
                                           padding: const EdgeInsets.only(bottom: 12.0),
@@ -249,11 +449,11 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                               child: Container(
                                                 padding: const EdgeInsets.all(8),
                                                 decoration: BoxDecoration(
-                                                  color: isLowest ? Colors.green.withValues(alpha: 0.1) : AppColors.cardBackground,
+                                                  color: cardBg,
                                                   borderRadius: BorderRadius.circular(6),
                                                   border: Border.all(
-                                                    color: isLowest ? Colors.green : AppColors.primaryBlue.withValues(alpha: 0.2),
-                                                    width: isLowest ? 2 : 1,
+                                                    color: borderColor,
+                                                    width: borderWidth,
                                                   ),
                                                 ),
                                                 child: Column(
@@ -328,7 +528,7 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                                         ),
                                                         Text(
                                                           '₹${adjustedPrice.toInt()}',
-                                                          style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+                                                          style: TextStyle(color: priceColor, fontSize: 16, fontWeight: FontWeight.bold),
                                                         ),
                                                       ],
                                                     ),

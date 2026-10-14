@@ -9,6 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../flights/presentation/providers/flight_providers.dart';
 import '../../../flights/domain/entities/flight.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
+import '../providers/import_history_providers.dart';
+
+enum ImportReplaceMode {
+  sectorOnly,
+  fullAgency,
+  appendOnly,
+}
 
 class ImportPage extends ConsumerStatefulWidget {
   const ImportPage({super.key});
@@ -18,19 +25,10 @@ class ImportPage extends ConsumerStatefulWidget {
 }
 
 class _ImportPageState extends ConsumerState<ImportPage> {
-  int _selectedTab = 0; // 0: Market Fares (Standard), 1: Add-on
-
-  // Standard import controllers & state
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   String? _selectedAgencyId;
   String? _selectedAgencyName;
-
-  // Add-on controllers & state
-  final TextEditingController _addonController = TextEditingController();
-  String? _selectedAddonAgencyId;
-  String? _selectedAddonAgencyName;
-  String _selectedAddonCategory = 'Extra Baggage';
 
   bool _isLoading = false;
 
@@ -38,7 +36,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   void dispose() {
     _messageController.dispose();
     _timeController.dispose();
-    _addonController.dispose();
     super.dispose();
   }
 
@@ -77,7 +74,10 @@ class _ImportPageState extends ConsumerState<ImportPage> {
 
     try {
       final geminiService = ref.read(geminiServiceProvider);
-      final parsedData = await geminiService.parseFlightData(_messageController.text);
+      final parsedData = await geminiService.parseFlightData(
+        _messageController.text,
+        agencyName: _selectedAgencyName,
+      );
       
       if (parsedData.isEmpty) {
         throw Exception("No flights were found in the text.");
@@ -138,49 +138,204 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   }
 
   void _showPreviewDialog(List<Flight> flights, String agencyName) {
+    ImportReplaceMode replaceMode = ImportReplaceMode.sectorOnly;
+    final uniqueSectors = flights.map((f) => '${f.source} ➝ ${f.destination}').toSet().toList();
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Preview Data (${flights.length} Flights for $agencyName)'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: flights.length,
-              separatorBuilder: (context, index) => const Divider(),
-              itemBuilder: (context, index) {
-                final f = flights[index];
-                return ListTile(
-                  leading: const Icon(Icons.flight, color: AppColors.iconBlue),
-                  title: Text('${f.source} → ${f.destination}  |  ${f.date}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Airline: ${f.airline} | Price: ₹${f.marketedPrice} | Baggage: ${f.baggage}\nFlight No: ${f.flightNumber} | Timing: ${f.timing}\nAgency: $agencyName'),
-                  isThreeLine: true,
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context), // Close without saving
-              child: const Text('Cancel', style: TextStyle(color: AppColors.errorRed)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: AppColors.white),
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                _uploadToFirebase(flights); // Start upload
-              },
-              child: const Text('Confirm & Upload'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Preview (${flights.length} Flights for $agencyName)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    uniqueSectors.length <= 4
+                        ? 'Sector(s): ${uniqueSectors.join(', ')}'
+                        : 'Sector(s): ${uniqueSectors.take(4).join(', ')} +${uniqueSectors.length - 4} more (${uniqueSectors.length} sectors)',
+                    style: const TextStyle(fontSize: 12, color: AppColors.primaryBlue, fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 620,
+                height: (MediaQuery.sizeOf(context).height * 0.75).clamp(380.0, 580.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.scaffoldBackground,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          RadioListTile<ImportReplaceMode>(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                            dense: true,
+                            value: ImportReplaceMode.sectorOnly,
+                            groupValue: replaceMode,
+                            activeColor: AppColors.primaryBlue,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                replaceMode = val ?? ImportReplaceMode.sectorOnly;
+                              });
+                            },
+                            title: Text(
+                              'Replace ONLY detected sector(s) (${uniqueSectors.length})',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              'Safe update: Replaces only these ${uniqueSectors.length} sector(s). All other sectors of $agencyName stay safe.',
+                              style: const TextStyle(fontSize: 11, color: AppColors.textGrey),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          RadioListTile<ImportReplaceMode>(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                            dense: true,
+                            value: ImportReplaceMode.fullAgency,
+                            groupValue: replaceMode,
+                            activeColor: Colors.orange.shade800,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                replaceMode = val ?? ImportReplaceMode.fullAgency;
+                              });
+                            },
+                            title: Text(
+                              'Replace ALL flights for $agencyName (Full Daily Reset)',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: const Text(
+                              'Daily Master: Deletes ALL previous flights of this agency and puts this fresh list (clears ended sectors).',
+                              style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          RadioListTile<ImportReplaceMode>(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                            dense: true,
+                            value: ImportReplaceMode.appendOnly,
+                            groupValue: replaceMode,
+                            activeColor: AppColors.successGreen,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                replaceMode = val ?? ImportReplaceMode.appendOnly;
+                              });
+                            },
+                            title: const Text(
+                              'Append / Add without deleting anything',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: const Text(
+                              'Keeps all existing flights and just adds these new flights.',
+                              style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ListView.separated(
+                          itemCount: flights.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final f = flights[index];
+                            final hasAirline = f.airline.isNotEmpty && f.airline != '—';
+                            final hasFlightNum = f.flightNumber.isNotEmpty && f.flightNumber != '—';
+                            final flightDetails = [
+                              if (hasAirline) 'Airline: ${f.airline}',
+                              if (hasFlightNum) 'Flight: ${f.flightNumber}',
+                              if (f.timing.isNotEmpty && f.timing != '—') 'Time: ${f.timing}',
+                              if (f.baggage.isNotEmpty && f.baggage != '—') 'Bag: ${f.baggage}',
+                              if (f.seats.isNotEmpty && f.seats != '—') 'Seats: ${f.seats}',
+                            ].join(' | ');
+
+                            return ListTile(
+                              dense: true,
+                              leading: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.flight_takeoff, color: AppColors.primaryBlue, size: 18),
+                              ),
+                              title: Row(
+                                children: [
+                                  Text('${f.source} ➝ ${f.destination}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryBlue)),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(f.date, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                  ),
+                                  const Spacer(),
+                                  Text('₹${f.marketedPrice.toInt()}/-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textBlack)),
+                                ],
+                              ),
+                              subtitle: flightDetails.isNotEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: Text(flightDetails, style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                                    )
+                                  : null,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context), // Close without saving
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.errorRed)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: AppColors.white),
+                  onPressed: () {
+                    Navigator.pop(context); // Close dialog
+                    _uploadToFirebase(
+                      flights,
+                      replaceSectorFares: replaceMode == ImportReplaceMode.sectorOnly,
+                      replaceAllAgencyFares: replaceMode == ImportReplaceMode.fullAgency,
+                    );
+                  },
+                  child: const Text('Confirm & Upload'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  Future<void> _uploadToFirebase(List<Flight> flights) async {
+  Future<void> _uploadToFirebase(
+    List<Flight> flights, {
+    bool replaceSectorFares = true,
+    bool replaceAllAgencyFares = false,
+  }) async {
     setState(() {
       _isLoading = true;
     });
@@ -188,9 +343,37 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     LoadingDialog.show(context, messageNotifier: progressNotifier);
     try {
       final repository = ref.read(flightRepositoryProvider);
-      await repository.saveFlights(flights, onProgress: (count, total) {
-        progressNotifier.value = 'Uploading $count/$total flights...\nPlease wait.';
-      });
+      await repository.saveFlights(
+        flights,
+        replaceSectorFares: replaceSectorFares,
+        replaceAllAgencyFares: replaceAllAgencyFares,
+        onProgress: (count, total) {
+          progressNotifier.value = 'Uploading $count/$total flights...\nPlease wait.';
+        },
+      );
+
+      // Record in import history
+      try {
+        final modeText = replaceAllAgencyFares
+            ? 'Full Agency Reset'
+            : (replaceSectorFares ? 'Sector-wise Replace' : 'Append Only');
+
+        final distinctSectors = flights.map((f) => '${f.source}-${f.destination}').toSet().toList();
+
+        await ref.read(importHistoryDataSourceProvider).recordImport(
+          agencyName: flights.first.agencyName,
+          agencyId: flights.first.agencyId,
+          importMode: modeText,
+          flightCount: flights.length,
+          sectors: distinctSectors,
+        );
+      } catch (histErr, histSt) {
+        AppLogger.error('Failed to log import history', histErr, histSt);
+      }
+      
+      // Auto-refresh all sectors, sector comparison table, and lowest fare pages
+      ref.invalidate(allFlightsProvider);
+      ref.invalidate(sectorsProvider);
       
       if (mounted) {
         LoadingDialog.hide(context);
@@ -221,150 +404,52 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTabBar(isMobile),
+          _buildHeaderCard(isMobile),
           const SizedBox(height: 16),
-          if (_selectedTab == 0) ...[
-            _buildHeaderCard(),
-            const SizedBox(height: 16),
-            _buildImportCard(isMobile),
-            const SizedBox(height: 16),
-            _buildFooterCard(context, isMobile),
-          ] else ...[
-            _buildAddonHeaderCard(),
-            const SizedBox(height: 16),
-            _buildAddonImportCard(isMobile),
-            const SizedBox(height: 16),
-            _buildAddonGuideCard(isMobile),
-          ],
+          _buildImportCard(isMobile),
+          const SizedBox(height: 16),
+          _buildFooterCard(context, isMobile),
         ],
       ),
     );
   }
 
-  Widget _buildTabBar(bool isMobile) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTabButton(
-              index: 0,
-              icon: Icons.upload_file_rounded,
-              title: isMobile ? 'Market Fares' : 'Market Fare Import',
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _buildTabButton(
-              index: 1,
-              icon: Icons.extension_rounded,
-              title: isMobile ? 'Add-on Import' : 'Add-on Data Import',
-              badge: 'Addon',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton({
-    required int index,
-    required IconData icon,
-    required String title,
-    String? badge,
-  }) {
-    final isSelected = _selectedTab == index;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(9),
-      onTap: () {
-        setState(() {
-          _selectedTab = index;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.headerDark : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.headerDark.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 19,
-              color: isSelected ? Colors.white : AppColors.buttonLightGrey,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                fontSize: 13,
-                color: isSelected ? Colors.white : AppColors.textBlack,
-              ),
-            ),
-            if (badge != null) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.white.withValues(alpha: 0.25) : AppColors.primaryBlue.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : AppColors.primaryBlue,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCard() {
+  Widget _buildHeaderCard(bool isMobile) {
     return Card(
       color: AppColors.cardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Import Market Fare Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 4),
-            Text(
-              'Select the agency from Agency Master. The same master name is used for starring and comparison deductions. Updated Time is optional.',
-              style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text('Import Market Fare Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
+                  Text(
+                    'Select the agency from Agency Master. The same master name is used for starring and comparison deductions. Updated Time is optional.',
+                    style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: AppColors.white,
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => context.push('/import/history'),
+              icon: const Icon(Icons.history_rounded, size: 18),
+              label: Text(
+                isMobile ? 'History' : 'Import History',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
           ],
         ),
@@ -623,305 +708,5 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       ),
     );
   }
-
-  // --- Add-on Import Tab Widgets ---
-
-  Widget _buildAddonHeaderCard() {
-    return Card(
-      color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.extension_rounded, color: AppColors.headerDark, size: 22),
-                const SizedBox(width: 8),
-                const Text(
-                  'Add-on Fare Import',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.headerDark.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Preview UI',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.headerDark,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Import ancillary flight services such as extra baggage, seat selection, meals, and agency service markups.',
-              style: TextStyle(color: AppColors.textGrey, fontSize: 13),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddonImportCard(bool isMobile) {
-    final categories = ['Extra Baggage', 'Seat Selection', 'Meals & Food', 'Service Markups'];
-
-    return Card(
-      color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Add-on Category',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textBlack),
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: categories.map((cat) {
-                  final isSelected = _selectedAddonCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      selected: isSelected,
-                      label: Text(cat),
-                      labelStyle: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? Colors.white : AppColors.buttonGrey,
-                      ),
-                      selectedColor: AppColors.headerDark,
-                      backgroundColor: Colors.grey.withValues(alpha: 0.1),
-                      showCheckmark: false,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      onSelected: (val) {
-                        setState(() {
-                          _selectedAddonCategory = cat;
-                        });
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _addonController,
-              maxLines: 8,
-              decoration: InputDecoration(
-                hintText: 'Paste WhatsApp add-on message or auxiliary pricing here...\nExample:\nCCJ DXB Extra 20KG Baggage: ₹1,500\nCCJ RUH Meal Selection: ₹400\nCCJ DOH Front Row Seat: ₹600',
-                hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 13),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.all(14),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ref.watch(agenciesStreamProvider).when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (e, st) => Text('Error: $e'),
-              data: (agencies) {
-                if (isMobile) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DropdownButtonFormField<String>(
-                        value: _selectedAddonAgencyId,
-                        decoration: InputDecoration(
-                          labelText: 'Select Agency / Group',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          prefixIcon: const Icon(Icons.business_outlined, size: 20),
-                        ),
-                        hint: const Text('Select Agency / Group'),
-                        items: agencies.map((agency) {
-                          return DropdownMenuItem(
-                            value: agency.id,
-                            child: Text(agency.name),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedAddonAgencyId = val;
-                            if (val != null) {
-                              _selectedAddonAgencyName = agencies.firstWhere((a) => a.id == val).name;
-                            }
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.headerDark,
-                            foregroundColor: AppColors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () {
-                            if (_addonController.text.trim().isEmpty) {
-                              _showErrorDialog('Missing Information', 'Please paste add-on text first.');
-                              return;
-                            }
-                            if (_selectedAddonAgencyId == null) {
-                              _showErrorDialog('Agency Required', 'Please select an agency before importing.');
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Add-on data captured for $_selectedAddonCategory (${_selectedAddonAgencyName ?? 'Agency'})! Ready for parser integration.'),
-                                backgroundColor: AppColors.headerDark,
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.playlist_add_check_rounded),
-                          label: const Text('Import Add-on Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        ),
-                      ),
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedAddonAgencyId,
-                        decoration: InputDecoration(
-                          labelText: 'Select Agency / Group',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          prefixIcon: const Icon(Icons.business_outlined, size: 20),
-                        ),
-                        hint: const Text('Select Agency / Group'),
-                        items: agencies.map((agency) {
-                          return DropdownMenuItem(
-                            value: agency.id,
-                            child: Text(agency.name),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedAddonAgencyId = val;
-                            if (val != null) {
-                              _selectedAddonAgencyName = agencies.firstWhere((a) => a.id == val).name;
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.headerDark,
-                        foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: () {
-                        if (_addonController.text.trim().isEmpty) {
-                          _showErrorDialog('Missing Information', 'Please paste add-on text first.');
-                          return;
-                        }
-                        if (_selectedAddonAgencyId == null) {
-                          _showErrorDialog('Agency Required', 'Please select an agency before importing.');
-                          return;
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Add-on data captured for $_selectedAddonCategory (${_selectedAddonAgencyName ?? 'Agency'})! Ready for parser integration.'),
-                            backgroundColor: AppColors.headerDark,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.playlist_add_check_rounded),
-                      label: const Text('Import Add-on Data', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddonGuideCard(bool isMobile) {
-    final sampleRules = [
-      {'title': 'Extra Baggage', 'example': 'Sector + Airline + Baggage weight (e.g. CCJ DXB IX 20KG: ₹1,500)'},
-      {'title': 'Seat Selection', 'example': 'Preferred seating or extra legroom rows (e.g. Front Row +₹600)'},
-      {'title': 'Meal Add-ons', 'example': 'Pre-booked in-flight hot meals / refreshments (e.g. Non-Veg Meal +₹450)'},
-    ];
-
-    return Card(
-      color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.lightbulb_outline_rounded, color: AppColors.primaryBlue, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Supported Add-on Structures (Upcoming Feature)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ...sampleRules.map((r) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 6, right: 8),
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primaryBlue,
-                    ),
-                  ),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: const TextStyle(fontSize: 12, color: AppColors.textBlack),
-                        children: [
-                          TextSpan(text: '${r['title']!}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          TextSpan(text: r['example']!, style: const TextStyle(color: AppColors.textGrey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-      ),
-    );
-  }
 }
+

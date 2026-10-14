@@ -249,6 +249,7 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
     if (code == 'WY') return 'assets/LOGO/WY.png';
     if (code == 'XY') return 'assets/LOGO/XY.jpg';
     if (code == 'SV') return 'assets/LOGO/SV.png';
+    if (code == 'SG') return 'assets/LOGO/SG.png';
     if (code == '3L' || code == 'G9') return 'assets/LOGO/3L and G9.png';
     return null;
   }

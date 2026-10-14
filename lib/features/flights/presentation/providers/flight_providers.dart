@@ -74,9 +74,15 @@ class SectorData {
 final sectorsProvider = FutureProvider<List<SectorData>>((ref) async {
   final flights = await ref.watch(allFlightsProvider.future);
   
+  final validCode = RegExp(r'^[A-Z]{3}$');
   final Map<String, Set<String>> sectorMap = {};
   for (var flight in flights) {
-    final key = '${flight.source}-${flight.destination}';
+    final src = flight.source.toUpperCase().trim();
+    final dst = flight.destination.toUpperCase().trim();
+    if (!validCode.hasMatch(src) || !validCode.hasMatch(dst)) {
+      continue;
+    }
+    final key = '$src-$dst';
     if (!sectorMap.containsKey(key)) {
       sectorMap[key] = {};
     }

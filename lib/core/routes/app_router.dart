@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/agency/presentation/pages/agency_page.dart';
 import '../../features/sectors/presentation/pages/sectors_page.dart';
 import '../../features/import/presentation/pages/import_page.dart';
+import '../../features/import/presentation/pages/import_history_page.dart';
 import '../../features/lowest_fare/presentation/pages/lowest_fare_page.dart';
 import '../../features/flights/presentation/pages/agency_data_page.dart';
 import '../../features/sectors/presentation/pages/sector_details_page.dart';
@@ -33,6 +34,10 @@ class AppRouter {
       GoRoute(
         path: '/import',
         builder: (context, state) => const ImportPage(),
+      ),
+      GoRoute(
+        path: '/import/history',
+        builder: (context, state) => const ImportHistoryPage(),
       ),
       GoRoute(
         path: '/data',

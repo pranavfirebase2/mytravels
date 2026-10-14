@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_colors.dart';
+import '../../features/agency/presentation/widgets/agency_update_status_badge.dart';
 
 class _NavItem {
   final String title;
@@ -156,6 +157,11 @@ class AppLayout extends StatelessWidget {
         ],
       ),
       actions: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.0),
+          child: AgencyUpdateStatusBadge(compact: true),
+        ),
+        const SizedBox(width: 4),
         if (isMobile && canPop)
           Builder(
             builder: (scaffoldCtx) => IconButton(
@@ -164,6 +170,7 @@ class AppLayout extends StatelessWidget {
               tooltip: 'Navigation Menu',
             ),
           ),
+        const SizedBox(width: 8),
       ],
     );
   }

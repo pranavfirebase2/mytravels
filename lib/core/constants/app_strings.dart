@@ -1,5 +1,5 @@
 class AppStrings {
-  static const String appName = 'My Travels Agency';
+  static const String appName = 'Aerosphere Travels';
   static const String pasteMessageTitle = 'Paste WhatsApp Message';
   static const String pasteMessageHint = 'Paste the flight details from WhatsApp here...';
   static const String extractButtonText = 'Extract Flight Data';
@@ -21,10 +21,18 @@ class AppStrings {
     'AAN': 'Al Ain',
     'COK': 'Kochi',
     'TRV': 'Trivandrum',
+    'CNN': 'Kannur',
     'IXE': 'Mangalore',
     'BLR': 'Bangalore',
+    'MAA': 'Chennai',
+    'HYD': 'Hyderabad',
+    'CJB': 'Coimbatore',
+    'IXM': 'Madurai',
+    'GOI': 'Goa',
     'BOM': 'Mumbai',
     'DEL': 'Delhi',
+    'AMD': 'Ahmedabad',
+    'RKT': 'Ras Al Khaimah',
     'DOH': 'Doha',
     'KWI': 'Kuwait',
     'MCT': 'Muscat',
@@ -32,10 +40,13 @@ class AppStrings {
     'RUH': 'Riyadh',
     'JED': 'Jeddah',
     'DMM': 'Dammam',
+    'SLL': 'Salalah',
     'SAL': 'Salalah',
     'CAN': 'Guangzhou',
     'SIN': 'Singapore',
     'KUL': 'Kuala Lumpur',
+    'CMB': 'Colombo',
+    'BKK': 'Bangkok',
   };
 
   static const Map<String, String> airlineNames = {
@@ -58,5 +69,6 @@ class AppStrings {
     'EY': 'Etihad Airways',
     'F3': 'flyadeal',
     'RX': 'Riyadh Air',
+    'SG': 'SpiceJet',
   };
 }

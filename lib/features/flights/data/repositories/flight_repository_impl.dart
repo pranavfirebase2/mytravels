@@ -14,7 +14,12 @@ class FlightRepositoryImpl implements FlightRepository {
   }
 
   @override
-  Future<void> saveFlights(List<Flight> flights, {void Function(int count, int total)? onProgress}) async {
+  Future<void> saveFlights(
+    List<Flight> flights, {
+    bool replaceSectorFares = true,
+    bool replaceAllAgencyFares = false,
+    void Function(int count, int total)? onProgress,
+  }) async {
     final flightModels = flights.map((f) => FlightModel(
       id: f.id,
       agencyId: f.agencyId,
@@ -31,7 +36,12 @@ class FlightRepositoryImpl implements FlightRepository {
       parsedDate: f.parsedDate,
       createdAt: f.createdAt ?? DateTime.now(),
     )).toList();
-    return _remoteDataSource.saveFlights(flightModels, onProgress: onProgress);
+    return _remoteDataSource.saveFlights(
+      flightModels,
+      replaceSectorFares: replaceSectorFares,
+      replaceAllAgencyFares: replaceAllAgencyFares,
+      onProgress: onProgress,
+    );
   }
 
   @override

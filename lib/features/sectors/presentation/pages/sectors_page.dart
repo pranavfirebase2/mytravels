@@ -5,6 +5,7 @@ import '../../../../core/widgets/app_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../flights/presentation/providers/flight_providers.dart';
+import '../../../agency/presentation/widgets/agency_update_status_badge.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -61,13 +62,20 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'All Sectors',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryBlue,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'All Sectors',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryBlue,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            AgencyUpdateStatusBadge(compact: true),
+                          ],
                         ),
                         if (_selectedFrom != null || _selectedTo != null || _searchQuery.isNotEmpty)
                           TextButton.icon(
@@ -133,9 +141,16 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'All Sectors',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Text(
+                        'All Sectors',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+                      ),
+                      SizedBox(width: 12),
+                      AgencyUpdateStatusBadge(),
+                    ],
                   ),
                   Row(
                     children: [
