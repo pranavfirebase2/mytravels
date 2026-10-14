@@ -43,7 +43,8 @@
     "public": "build/web",
     "ignore": [
       "firebase.json",
-      "**/.*",
+      "**/.DS_Store",
+      "**/.git/**",
       "**/node_modules/**"
     ],
     "rewrites": [

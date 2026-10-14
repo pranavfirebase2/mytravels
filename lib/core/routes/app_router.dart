@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/agency/presentation/pages/agency_page.dart';
 import '../../features/sectors/presentation/pages/sectors_page.dart';
@@ -6,14 +7,47 @@ import '../../features/import/presentation/pages/import_history_page.dart';
 import '../../features/lowest_fare/presentation/pages/lowest_fare_page.dart';
 import '../../features/flights/presentation/pages/agency_data_page.dart';
 import '../../features/sectors/presentation/pages/sector_details_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/data/services/auth_service.dart';
 
 class AppRouter {
   static final router = GoRouter(
-    initialLocation: '/sectors',
+    initialLocation: '/splash',
+    refreshListenable: authServiceInstance,
+    redirect: (BuildContext context, GoRouterState state) {
+      final isAuth = authServiceInstance.isAuthenticated;
+      final location = state.matchedLocation;
+
+      // Let the splash screen display its animation and handle routing
+      if (location == '/splash') {
+        return null;
+      }
+
+      final isGoingToLogin = location == '/login';
+
+      if (!isAuth && !isGoingToLogin) {
+        return '/login';
+      }
+
+      if (isAuth && isGoingToLogin) {
+        return '/sectors';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashPage(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
         path: '/',
-        redirect: (context, state) => '/sectors',
+        redirect: (context, state) => '/splash',
       ),
       GoRoute(
         path: '/sectors',

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../constants/app_colors.dart';
 import '../../features/agency/presentation/widgets/agency_update_status_badge.dart';
+import '../../features/auth/data/services/auth_service.dart';
 
 class _NavItem {
   final String title;
@@ -160,6 +161,16 @@ class AppLayout extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 8.0),
           child: AgencyUpdateStatusBadge(compact: true),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          icon: const Icon(
+            Icons.logout_rounded,
+            color: Color(0xFFEF4444),
+            size: 20,
+          ),
+          tooltip: 'Sign Out (mytravels@gmail.com)',
+          onPressed: () => _confirmLogout(context),
         ),
         const SizedBox(width: 4),
         if (isMobile && canPop)
@@ -425,40 +436,99 @@ class AppLayout extends StatelessWidget {
             ),
           ),
 
-          // Drawer Footer
+          // Drawer Footer with User Info & Sign Out
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
               ),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.successGreen,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.headerDark.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 18,
+                        color: AppColors.headerDark,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Aerosphere Staff',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textBlack,
+                            ),
+                          ),
+                          Text(
+                            'mytravels@gmail.com',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textGrey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        color: Color(0xFFEF4444),
+                        size: 18,
+                      ),
+                      tooltip: 'Sign Out',
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _confirmLogout(context);
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Operations Active',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.buttonGrey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  'v1.0.0',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textGrey.withValues(alpha: 0.7),
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.successGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Operations Active',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.buttonGrey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'v1.0.0',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textGrey.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -467,5 +537,49 @@ class AppLayout extends StatelessWidget {
       ),
     );
   }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.logout_rounded, color: Color(0xFFDC2626)),
+            SizedBox(width: 10),
+            Text(
+              'Sign Out',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to sign out from Aerosphere Travels portal?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.of(dialogCtx).pop();
+              await authServiceInstance.logout();
+            },
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
 
