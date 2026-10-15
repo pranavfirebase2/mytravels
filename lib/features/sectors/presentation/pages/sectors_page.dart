@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../flights/presentation/providers/flight_providers.dart';
 import '../../../agency/presentation/widgets/agency_update_status_badge.dart';
+import '../widgets/voice_search_dialog.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -31,6 +32,28 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
         _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
+  }
+
+  void _openVoiceSearch(BuildContext context) {
+    VoiceSearchDialog.show(
+      context: context,
+      onResultApplied: (res) {
+        if (res.hasSector) {
+          final dateParam = res.date != null
+              ? '?date=${res.date!.year}-${res.date!.month.toString().padLeft(2, '0')}-${res.date!.day.toString().padLeft(2, '0')}'
+              : '';
+          context.go('/sector/${res.src}/${res.dst}$dateParam');
+        } else if (res.src != null && res.dst == null) {
+          setState(() {
+            _selectedFrom = res.src;
+          });
+        } else if (res.dst != null && res.src == null) {
+          setState(() {
+            _selectedTo = res.dst;
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -119,20 +142,61 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search sector (e.g. CCJ DXB)',
-                        hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
-                        filled: true,
-                        fillColor: AppColors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Search sector (e.g. CCJ DXB)',
+                              hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
+                              filled: true,
+                              fillColor: AppColors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18, color: AppColors.textGrey),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                            ),
+                          ),
                         ),
-                        prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
-                      ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Voice Search (e.g. "Calicut Dubai Oct 21")',
+                          child: Container(
+                            height: 44,
+                            width: 44,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppColors.primaryBlue, Color(0xFF1D4ED8)],
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryBlue.withValues(alpha: 0.28),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.mic_rounded, color: Colors.white, size: 22),
+                              onPressed: () => _openVoiceSearch(context),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 );
@@ -173,6 +237,55 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                               borderSide: BorderSide.none,
                             ),
                             prefixIcon: const Icon(Icons.search, color: AppColors.iconBlueAccent, size: 20),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18, color: AppColors.textGrey),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Tooltip(
+                        message: 'Voice Search (e.g. "Calicut Dubai Oct 21")',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: () => _openVoiceSearch(context),
+                          child: Container(
+                            height: 42,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppColors.primaryBlue, Color(0xFF1D4ED8)],
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryBlue.withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.mic_rounded, color: Colors.white, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Voice Search',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

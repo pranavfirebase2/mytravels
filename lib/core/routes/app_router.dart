@@ -59,7 +59,16 @@ class AppRouter {
         builder: (context, state) {
           final src = state.pathParameters['src']!;
           final dst = state.pathParameters['dst']!;
-          return SectorDetailsPage(src: src, dst: dst);
+          final dateStr = state.uri.queryParameters['date'];
+          DateTime? initialDate;
+          if (dateStr != null && dateStr.isNotEmpty) {
+            initialDate = DateTime.tryParse(dateStr);
+          }
+          return SectorDetailsPage(
+            src: src,
+            dst: dst,
+            initialDate: initialDate,
+          );
         },
       ),
       GoRoute(

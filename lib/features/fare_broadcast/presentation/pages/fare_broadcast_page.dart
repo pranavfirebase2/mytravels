@@ -401,7 +401,7 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
                   controller: _contactNameController,
                   decoration: const InputDecoration(
                     labelText: 'Contact Person',
-                    hintText: 'Sorryjith',
+                    hintText: 'Sooryajith',
                     border: OutlineInputBorder(),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 10, vertical: 10),

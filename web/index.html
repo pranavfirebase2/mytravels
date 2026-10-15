@@ -42,6 +42,77 @@
   </style>
 </head>
 <body>
+  <script>
+    window.flutterVoiceSearch = {
+      recognition: null,
+      isListening: false,
+
+      isSupported: function() {
+        return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      },
+
+      start: function(onResult, onError, onEnd) {
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRec) {
+          if (onError) onError("Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+          return false;
+        }
+
+        try {
+          if (this.recognition) {
+            try { this.recognition.abort(); } catch(e) {}
+          }
+          this.recognition = new SpeechRec();
+          this.recognition.continuous = false;
+          this.recognition.interimResults = true;
+          this.recognition.lang = 'en-IN'; // Optimized for Indian / Gulf airports & dates
+
+          this.recognition.onresult = function(event) {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+              } else {
+                interimTranscript += event.results[i][0].transcript;
+              }
+            }
+            const text = (finalTranscript || interimTranscript).trim();
+            if (onResult && text) {
+              onResult(text, !!finalTranscript);
+            }
+          };
+
+          this.recognition.onerror = function(event) {
+            console.warn("Speech recognition error:", event.error);
+            if (onError) onError(event.error || "Speech error");
+          };
+
+          this.recognition.onend = function() {
+            window.flutterVoiceSearch.isListening = false;
+            if (onEnd) onEnd();
+          };
+
+          this.recognition.start();
+          this.isListening = true;
+          return true;
+        } catch (err) {
+          console.error("Speech recognition start failed:", err);
+          if (onError) onError(err.toString());
+          return false;
+        }
+      },
+
+      stop: function() {
+        if (this.recognition) {
+          try {
+            this.recognition.stop();
+          } catch(e) {}
+        }
+        this.isListening = false;
+      }
+    };
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

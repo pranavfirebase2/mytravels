@@ -16,8 +16,14 @@ import '../widgets/sector_comparison_table.dart';
 class SectorDetailsPage extends ConsumerStatefulWidget {
   final String src;
   final String dst;
+  final DateTime? initialDate;
 
-  const SectorDetailsPage({super.key, required this.src, required this.dst});
+  const SectorDetailsPage({
+    super.key,
+    required this.src,
+    required this.dst,
+    this.initialDate,
+  });
 
   @override
   ConsumerState<SectorDetailsPage> createState() => _SectorDetailsPageState();
@@ -31,11 +37,22 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
   @override
   void initState() {
     super.initState();
+    _selectedDate = widget.initialDate;
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.trim().toLowerCase();
       });
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant SectorDetailsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialDate != oldWidget.initialDate && widget.initialDate != null) {
+      setState(() {
+        _selectedDate = widget.initialDate;
+      });
+    }
   }
 
   @override
