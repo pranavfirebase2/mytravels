@@ -10,6 +10,7 @@ import '../../features/sectors/presentation/pages/sector_details_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/data/services/auth_service.dart';
+import '../../features/fare_broadcast/presentation/pages/fare_broadcast_page.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -80,6 +81,10 @@ class AppRouter {
       GoRoute(
         path: '/lowest-fare',
         builder: (context, state) => const LowestFarePage(),
+      ),
+      GoRoute(
+        path: '/fare-broadcast',
+        builder: (context, state) => const FareBroadcastPage(),
       ),
     ],
   );

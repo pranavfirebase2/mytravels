@@ -114,6 +114,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           marketedPrice: (data['marketedPrice'] ?? 0).toDouble(),
           parsedDate: parsed,
           createdAt: DateTime.now(),
+          via: data['via'] ?? '',
         );
       }).toList();
 
@@ -261,6 +262,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                             final flightDetails = [
                               if (hasAirline) 'Airline: ${f.airline}',
                               if (hasFlightNum) 'Flight: ${f.flightNumber}',
+                              if (f.via.isNotEmpty) 'Via: ${f.via}',
                               if (f.timing.isNotEmpty && f.timing != '—') 'Time: ${f.timing}',
                               if (f.baggage.isNotEmpty && f.baggage != '—') 'Bag: ${f.baggage}',
                               if (f.seats.isNotEmpty && f.seats != '—') 'Seats: ${f.seats}',
@@ -279,6 +281,21 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                               title: Row(
                                 children: [
                                   Text('${f.source} ➝ ${f.destination}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryBlue)),
+                                  if (f.via.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF3C7),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6), width: 0.8),
+                                      ),
+                                      child: Text(
+                                        'Via ${f.via}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF92400E)),
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

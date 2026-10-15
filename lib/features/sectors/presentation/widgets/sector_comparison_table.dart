@@ -533,17 +533,47 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                                       ],
                                                     ),
                                                     const SizedBox(height: 8),
-                                                    Text(
-                                                      '${widget.src} - ${widget.dst}',
-                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+                                                    Row(
+                                                      children: [
+                                                        Text(
+                                                          '${widget.src} - ${widget.dst}',
+                                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+                                                        ),
+                                                        if (f.via.isNotEmpty) ...[
+                                                          const SizedBox(width: 6),
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                            decoration: BoxDecoration(
+                                                              color: const Color(0xFFFEF3C7),
+                                                              borderRadius: BorderRadius.circular(4),
+                                                              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6), width: 0.8),
+                                                            ),
+                                                            child: Text(
+                                                              'Via ${f.via}',
+                                                              style: const TextStyle(
+                                                                fontSize: 9,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Color(0xFF92400E),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
-                                                      '${AppStrings.airportNames[widget.src] ?? widget.src} - ${AppStrings.airportNames[widget.dst] ?? widget.dst}',
+                                                      f.via.isNotEmpty
+                                                          ? '${AppStrings.airportNames[widget.src] ?? widget.src} → ${AppStrings.airportNames[f.via] ?? f.via} → ${AppStrings.airportNames[widget.dst] ?? widget.dst}'
+                                                          : '${AppStrings.airportNames[widget.src] ?? widget.src} - ${AppStrings.airportNames[widget.dst] ?? widget.dst}',
                                                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.textGrey),
                                                     ),
                                                     const SizedBox(height: 2),
-                                                    Text('${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}', style: const TextStyle(fontSize: 9, color: AppColors.textGrey)),
+                                                    Text(
+                                                      f.via.isNotEmpty
+                                                          ? '${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber} (Via ${f.via})'
+                                                          : '${AppStrings.airlineNames[f.airline] ?? f.airline} (${f.airline}) - ${f.flightNumber}',
+                                                      style: const TextStyle(fontSize: 9, color: AppColors.textGrey),
+                                                    ),
                                                     const SizedBox(height: 2),
                                                     Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
                                                   ],

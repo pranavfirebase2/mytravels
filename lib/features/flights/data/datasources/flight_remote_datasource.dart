@@ -116,6 +116,7 @@ class FlightRemoteDataSource {
             marketedPrice: flight.marketedPrice,
             parsedDate: flight.parsedDate,
             createdAt: now.add(Duration(milliseconds: globalIndex)), // Preserves 100% exact WhatsApp order!
+            via: flight.via,
           );
           batch.set(docRef, newFlight.toJson());
         }

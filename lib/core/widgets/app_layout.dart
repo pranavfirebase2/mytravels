@@ -56,6 +56,12 @@ class AppLayout extends StatelessWidget {
       icon: Icons.price_check_rounded,
       subtitle: 'Best fares and comparison',
     ),
+    _NavItem(
+      title: 'Fare Broadcast',
+      route: '/fare-broadcast',
+      icon: Icons.campaign_rounded,
+      subtitle: 'WhatsApp promo flyer generator',
+    ),
   ];
 
   const AppLayout({

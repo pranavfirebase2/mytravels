@@ -241,6 +241,14 @@ class GeminiService {
 
   String _preprocessAndInjectSectors(String text) {
     final lines = text.split('\n');
+    final viaWordRegex = RegExp(
+      r'\b([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\||\s+)\s*([A-Za-z]{3})\s+(?:VIA|VI|1\s*STOP\s*VIA)\s+([A-Za-z]{3})\b',
+      caseSensitive: false,
+    );
+    final connectingRegex = RegExp(
+      r'\b([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\||\s+)\s*([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\||\s+)\s*([A-Za-z]{3})\b',
+      caseSensitive: false,
+    );
     final sectorRegex = RegExp(r'\b([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\|)\s*([A-Za-z]{3})\b', caseSensitive: false);
     final inlineSectorRegex = RegExp(r'\b([A-Za-z]{3})\s+([A-Za-z]{3})\b', caseSensitive: false);
     final dateRegex = RegExp(r'\b\d{1,2}\s*(?:OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP)\b', caseSensitive: false);
@@ -253,17 +261,41 @@ class GeminiService {
       final trimmed = raw.trim();
       if (trimmed.isEmpty) continue;
 
-      var secMatch = sectorRegex.firstMatch(trimmed);
-      secMatch ??= inlineSectorRegex.firstMatch(trimmed);
       final hasDate = dateRegex.hasMatch(trimmed);
       final hasPrice = priceRegex.hasMatch(trimmed);
 
-      if (secMatch != null && !(hasDate && hasPrice)) {
-        final src = secMatch.group(1)!.toUpperCase();
-        final dst = secMatch.group(2)!.toUpperCase();
-        if (!_months.contains(src) && !_months.contains(dst)) {
-          currentSector = '$src ➝ $dst';
-          continue;
+      if (!(hasDate && hasPrice)) {
+        final viaMatch = viaWordRegex.firstMatch(trimmed);
+        if (viaMatch != null) {
+          final src = viaMatch.group(1)!.toUpperCase();
+          final dst = viaMatch.group(2)!.toUpperCase();
+          final via = viaMatch.group(3)!.toUpperCase();
+          if (!_months.contains(src) && !_months.contains(dst) && !_months.contains(via)) {
+            currentSector = '$src ➝ $dst (VIA $via)';
+            continue;
+          }
+        }
+
+        final connMatch = connectingRegex.firstMatch(trimmed);
+        if (connMatch != null) {
+          final src = connMatch.group(1)!.toUpperCase();
+          final via = connMatch.group(2)!.toUpperCase();
+          final dst = connMatch.group(3)!.toUpperCase();
+          if (!_months.contains(src) && !_months.contains(via) && !_months.contains(dst)) {
+            currentSector = '$src ➝ $dst (VIA $via)';
+            continue;
+          }
+        }
+
+        var secMatch = sectorRegex.firstMatch(trimmed);
+        secMatch ??= inlineSectorRegex.firstMatch(trimmed);
+        if (secMatch != null) {
+          final src = secMatch.group(1)!.toUpperCase();
+          final dst = secMatch.group(2)!.toUpperCase();
+          if (!_months.contains(src) && !_months.contains(dst)) {
+            currentSector = '$src ➝ $dst';
+            continue;
+          }
         }
       }
 
@@ -280,15 +312,20 @@ class GeminiService {
   Future<List<Map<String, dynamic>>> _parseChunk(String messageChunk) async {
     const systemPrompt = '''
 You are an expert flight fare parser. Extract each flight from the travel agency text into a single pipe-delimited line in this exact format:
-source|destination|date|airline|flightNumber|timing|baggage|seats|marketedPrice
+source|destination|date|airline|flightNumber|timing|baggage|seats|marketedPrice|via
 
-Example:
-CCJ|DXB|15 OCT|IX|347|11:00|30 KG|2|15000
+Examples:
+CCJ|DXB|15 OCT|IX|347|11:00|30 KG|2|15000|
+CCJ|SHJ|21 OCT|OV|774/241|—|20+5 KG|—|19500|MCT
 
 CRITICAL RULES:
 - The line MUST ALWAYS start with the 3-letter origin airport code (e.g. CNN, CCJ, COK), NEVER with the date!
   Even if the message says "15 OCT CNN DXB" or "15 OCT - DXB", the output MUST be "CNN|DXB|15 OCT|...".
 - Source and destination must strictly be 3-letter IATA airport codes (e.g., 'CNN', 'CCJ', 'DXB', 'COK', 'SHJ', 'TRV', 'AUH', 'BOM', 'DEL').
+- CONNECTION / VIA FLIGHTS: When a flight has an intermediate stop or 3 airport codes (e.g. "CCJ MCT SHJ", "CCJ ➝ MCT ➝ SHJ", "CCJ SHJ VIA MCT"):
+  - Source is the FIRST airport (origin, e.g. "CCJ").
+  - Destination is the FINAL airport (destination, e.g. "SHJ").
+  - The 10th pipe column "via" is the connecting airport (e.g. "MCT"). For direct flights, leave 10th column empty.
 - If a line has multiple dates (e.g., '15,16 OCT' or '21 to 24 OCT'), split them and create a SEPARATE line for EACH date.
 - Marketed price must be numeric only without commas or currency symbols (e.g., 15000).
 - If timing, baggage, or seats are not mentioned, use '—'.
@@ -424,6 +461,14 @@ CRITICAL RULES:
     final results = <Map<String, dynamic>>[];
     final lines = text.split('\n');
 
+    final viaWordRegex = RegExp(
+      r'\b([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\||\s+)\s*([A-Za-z]{3})\s+(?:VIA|VI|1\s*STOP\s*VIA)\s+([A-Za-z]{3})\b',
+      caseSensitive: false,
+    );
+    final connectingRegex = RegExp(
+      r'\b([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\||\s+)\s*([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\||\s+)\s*([A-Za-z]{3})\b',
+      caseSensitive: false,
+    );
     final sectorRegex = RegExp(r'\b([A-Za-z]{3})\s*(?:→|➝|➔|➜|->|=>|TO|-|/|–|—|>|\|)\s*([A-Za-z]{3})\b', caseSensitive: false);
     final inlineSectorRegex = RegExp(r'\b([A-Za-z]{3})\s+([A-Za-z]{3})\b', caseSensitive: false);
     final dateRegex = RegExp(r'\b(\d{1,2})\s*[-/]?\s*([A-Za-z]{3})\b');
@@ -434,12 +479,13 @@ CRITICAL RULES:
     final standaloneAirlineRegex = RegExp(r'\b(IX|6E|AI|SG|FZ|G9|WY|EK|QR|EY|QP|XY|SV|J9|KU|AK|OV|F3|RX|UK|GF)\b', caseSensitive: false);
     final groupHeaderRegex = RegExp(r'\bgroup[- ]?(\d+)\b', caseSensitive: false);
     final priceRegex = RegExp(r'(?:₹|INR|RS\.?)?\s*(\d{1,2}[,.]\d{3}|\d{4,6})', caseSensitive: false);
-    final baggageRegex = RegExp(r'\b(\d{1,2}(?:\s*\+\s*\d{1,2})?\s*KG[S]?)\b', caseSensitive: false);
+    final baggageRegex = RegExp(r'\b(\d{1,2}(?:\s*\+\s*\d{1,2})?\s*KG[S]?)\b|\b(\d{1,2}\s*\+\s*\d{1,2})\b', caseSensitive: false);
     final timingRegex = RegExp(r'\b(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?(?:\s*-\s*\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)?)\b', caseSensitive: false);
     final seatsRegex = RegExp(r'\b(\d{1,2})\s*(?:SEATS?|SEAT|STS|ST)\b|\b(\d{1,2})\s*💺', caseSensitive: false);
 
     String? currentSrc;
     String? currentDst;
+    String currentVia = '';
     String currentAirline = '—';
     String currentFlightNum = '—';
     String currentBaggage = '—';
@@ -456,14 +502,44 @@ CRITICAL RULES:
 
       String? lineSrc;
       String? lineDst;
+      String? lineVia;
 
-      for (final m in sectorRegex.allMatches(line)) {
-        final s = m.group(1)!.toUpperCase();
-        final d = m.group(2)!.toUpperCase();
-        if (!_months.contains(s) && !_months.contains(d)) {
+      final viaMatch = viaWordRegex.firstMatch(line);
+      if (viaMatch != null) {
+        final s = viaMatch.group(1)!.toUpperCase();
+        final d = viaMatch.group(2)!.toUpperCase();
+        final v = viaMatch.group(3)!.toUpperCase();
+        if (!_months.contains(s) && !_months.contains(d) && !_months.contains(v)) {
           lineSrc = s;
           lineDst = d;
-          break;
+          lineVia = v;
+        }
+      }
+
+      if (lineSrc == null) {
+        final connMatch = connectingRegex.firstMatch(line);
+        if (connMatch != null) {
+          final s = connMatch.group(1)!.toUpperCase();
+          final v = connMatch.group(2)!.toUpperCase();
+          final d = connMatch.group(3)!.toUpperCase();
+          if (!_months.contains(s) && !_months.contains(v) && !_months.contains(d)) {
+            lineSrc = s;
+            lineVia = v;
+            lineDst = d;
+          }
+        }
+      }
+
+      if (lineSrc == null) {
+        for (final m in sectorRegex.allMatches(line)) {
+          final s = m.group(1)!.toUpperCase();
+          final d = m.group(2)!.toUpperCase();
+          if (!_months.contains(s) && !_months.contains(d)) {
+            lineSrc = s;
+            lineDst = d;
+            lineVia = '';
+            break;
+          }
         }
       }
 
@@ -474,6 +550,7 @@ CRITICAL RULES:
           if (!_months.contains(s) && !_months.contains(d)) {
             lineSrc = s;
             lineDst = d;
+            lineVia = '';
             break;
           }
         }
@@ -516,6 +593,7 @@ CRITICAL RULES:
         if (lineSrc != null) {
           currentSrc = lineSrc;
           currentDst = lineDst;
+          currentVia = lineVia ?? '';
           // Sector header resets sector-specific defaults
           currentAirline = currentGroupAirline ?? '—';
           currentFlightNum = '—';
@@ -544,7 +622,16 @@ CRITICAL RULES:
 
         final bg = baggageRegex.firstMatch(line);
         if (bg != null) {
-          currentBaggage = bg.group(1)!.toUpperCase().replaceAll('KGS', 'KG').replaceAllMapped(RegExp(r'(\d)KG'), (m) => '${m.group(1)} KG');
+          final rawBg = bg.group(1) ?? bg.group(2) ?? '';
+          if (rawBg.isNotEmpty) {
+            var formatted = rawBg.toUpperCase().replaceAll('KGS', 'KG');
+            if (!formatted.contains('KG')) {
+              formatted = '$formatted KG';
+            } else {
+              formatted = formatted.replaceAllMapped(RegExp(r'(\d)KG'), (m) => '${m.group(1)} KG');
+            }
+            currentBaggage = formatted;
+          }
         }
 
         final tm = timingRegex.firstMatch(line);
@@ -557,6 +644,7 @@ CRITICAL RULES:
 
       var src = lineSrc ?? currentSrc;
       var dst = lineDst ?? currentDst;
+      var via = lineVia ?? currentVia;
 
       if (src == null || dst == null) continue;
 
@@ -620,12 +708,25 @@ CRITICAL RULES:
       final tmMatch = timingRegex.firstMatch(line);
       final stMatch = seatsRegex.firstMatch(line);
 
-      final baggage = bgMatch?.group(1)?.toUpperCase().replaceAll('KGS', 'KG').replaceAllMapped(RegExp(r'(\d)KG'), (m) => '${m.group(1)} KG') ?? currentBaggage;
+      String baggage = currentBaggage;
+      if (bgMatch != null) {
+        final rawBg = bgMatch.group(1) ?? bgMatch.group(2) ?? '';
+        if (rawBg.isNotEmpty) {
+          var formatted = rawBg.toUpperCase().replaceAll('KGS', 'KG');
+          if (!formatted.contains('KG')) {
+            formatted = '$formatted KG';
+          } else {
+            formatted = formatted.replaceAllMapped(RegExp(r'(\d)KG'), (m) => '${m.group(1)} KG');
+          }
+          baggage = formatted;
+        }
+      }
       final timing = tmMatch?.group(1) ?? currentTiming;
 
       results.add({
         'source': src,
         'destination': dst,
+        'via': via,
         'date': dateStr,
         'airline': airline,
         'flightNumber': flightNum,
@@ -725,10 +826,12 @@ CRITICAL RULES:
         }
 
         final price = double.tryParse(parts[8].replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+        final via = (parts.length >= 10) ? parts[9].trim().toUpperCase() : '';
         if (price > 0 || parts[8].isNotEmpty) {
           results.add({
             'source': src,
             'destination': dst,
+            'via': via,
             'date': dt,
             'airline': airline,
             'flightNumber': flightNum,

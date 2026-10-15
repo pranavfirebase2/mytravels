@@ -399,4 +399,28 @@ _*Group-3*_
       expect(mf['airline'], equals('6E'));
     }
   });
+
+  test('GeminiService parses connecting / via flights (e.g. CCJ MCT SHJ) correctly', () async {
+    final sample = '''
+*CCJ MCT SHJ OV 774/241 20+5*
+CCJ MCT SHJ 21 OCT 19500
+CCJ MCT SHJ 26 OCT 19500
+CCJ MCT SHJ 27 OCT 19500
+CCJ MCT SHJ 29 OCT 19000
+''';
+
+    final service = GeminiService();
+    final flights = await service.parseFlightData(sample);
+
+    expect(flights.length, equals(4));
+    for (var f in flights) {
+      expect(f['source'], equals('CCJ'));
+      expect(f['destination'], equals('SHJ'));
+      expect(f['via'], equals('MCT'));
+      expect(f['airline'], equals('OV'));
+      expect(f['baggage'], equals('20+5 KG'));
+    }
+    expect(flights[0]['date'], equals('21 OCT'));
+    expect(flights[0]['marketedPrice'], equals(19500.0));
+  });
 }

@@ -934,7 +934,7 @@ class _LowestFarePageState extends ConsumerState<LowestFarePage> {
                         ),
                         DataCell(Text(f.airline)),
                         DataCell(Text(f.flightNumber)),
-                        DataCell(Text('${f.source} → ${f.destination}')),
+                        DataCell(Text(f.via.isNotEmpty ? '${f.source} → ${f.destination} (Via ${f.via})' : '${f.source} → ${f.destination}')),
                         DataCell(Text(f.timing.isNotEmpty ? f.timing : '—')),
                         DataCell(Text(f.baggage.isNotEmpty ? f.baggage : '—')),
                         DataCell(Text(f.seats.isNotEmpty ? f.seats : '—')),

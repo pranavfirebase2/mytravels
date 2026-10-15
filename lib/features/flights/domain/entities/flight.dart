@@ -13,6 +13,7 @@ class Flight {
   final double marketedPrice;
   final DateTime? parsedDate; // Real date for filtering
   final DateTime? createdAt;
+  final String via; // Connecting airport (e.g. "MCT"), empty if direct flight
 
   Flight({
     required this.id,
@@ -29,5 +30,6 @@ class Flight {
     required this.marketedPrice,
     this.parsedDate,
     this.createdAt,
+    this.via = '',
   });
 }

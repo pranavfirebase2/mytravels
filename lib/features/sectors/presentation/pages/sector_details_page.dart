@@ -556,7 +556,35 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
                     DataCell(Text(f.agencyName, style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataCell(Text(f.date)),
                     DataCell(Text(f.airline)),
-                    DataCell(Text(f.flightNumber)),
+                    DataCell(
+                      f.via.isNotEmpty
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(f.flightNumber),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Via ${f.via}',
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF92400E),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(f.flightNumber),
+                    ),
                     DataCell(Text(f.baggage)),
                     DataCell(Text(f.timing)),
                     DataCell(Text('₹${f.marketedPrice.toInt()}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold))),

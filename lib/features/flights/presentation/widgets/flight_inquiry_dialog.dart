@@ -56,11 +56,11 @@ void showFlightInquiryDialog({
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${AppStrings.airlineNames[flight.airline] ?? flight.airline} (${flight.airline} ${flight.flightNumber})',
+                        '${AppStrings.airlineNames[flight.airline] ?? flight.airline} (${flight.airline} ${flight.flightNumber})${flight.via.isNotEmpty ? " · Via ${flight.via}" : ""}',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '$src → $dst · ${flight.date}',
+                        '$src → ${flight.via.isNotEmpty ? "${flight.via} → " : ""}$dst · ${flight.date}',
                         style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
                       ),
                     ],
@@ -102,6 +102,34 @@ void showFlightInquiryDialog({
                               ),
                             ],
                           ),
+                          if (flight.via.isNotEmpty) ...[
+                            const Icon(Icons.arrow_forward_rounded, color: AppColors.primaryBlue, size: 16),
+                            Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6), width: 0.8),
+                                  ),
+                                  child: Text(
+                                    'Via ${flight.via}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: Color(0xFF92400E),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  AppStrings.airportNames[flight.via] ?? flight.via,
+                                  style: const TextStyle(fontSize: 10, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ],
                           const Icon(Icons.arrow_forward_rounded, color: AppColors.primaryBlue, size: 20),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -131,6 +159,10 @@ void showFlightInquiryDialog({
                       child: Column(
                         children: [
                           _buildSpecRow(Icons.calendar_today_rounded, 'Date', flight.date),
+                          if (flight.via.isNotEmpty) ...[
+                            const Divider(height: 14),
+                            _buildSpecRow(Icons.connecting_airports_rounded, 'Connection / Via', 'Via ${flight.via} (${AppStrings.airportNames[flight.via] ?? flight.via})'),
+                          ],
                           const Divider(height: 14),
                           _buildSpecRow(Icons.schedule_rounded, 'Timing', flight.timing.isNotEmpty ? flight.timing : '—'),
                           const Divider(height: 14),
@@ -375,12 +407,17 @@ void showFlightInquiryDialog({
                   final dstAirport = AppStrings.airportNames[dst] ?? dst;
                   final formattedDate = _formatDateForMessage(flight);
 
+                  final viaAirport = flight.via.isNotEmpty ? (AppStrings.airportNames[flight.via] ?? flight.via) : '';
+                  final connectionLine = flight.via.isNotEmpty
+                      ? '\n🔄 Connection: Via $viaAirport (${flight.via})'
+                      : '';
+
                   final message = '''Hi, 
 please check the availability for this flight.
-✈️ Flight: ${flight.airline} ${flight.flightNumber}
+✈️ Flight: ${flight.airline} ${flight.flightNumber}${flight.via.isNotEmpty ? " (Via ${flight.via})" : ""}
 📅 Date: $formattedDate
 📍 From: $srcAirport ($src)
-📍 To: $dstAirport ($dst)''';
+📍 To: $dstAirport ($dst)$connectionLine''';
 
                   var cleanPhone = targetPhone.replaceAll(RegExp(r'[^0-9]'), '');
                   if (cleanPhone.length == 10) {

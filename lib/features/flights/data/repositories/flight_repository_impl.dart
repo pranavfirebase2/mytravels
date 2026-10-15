@@ -35,6 +35,7 @@ class FlightRepositoryImpl implements FlightRepository {
       marketedPrice: f.marketedPrice,
       parsedDate: f.parsedDate,
       createdAt: f.createdAt ?? DateTime.now(),
+      via: f.via,
     )).toList();
     return _remoteDataSource.saveFlights(
       flightModels,
