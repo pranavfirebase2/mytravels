@@ -17,6 +17,7 @@ class FareBroadcastConfig {
   final double markup;
   final String contactName;
   final String contactPhone;
+  final String communityLink;
   final String customHeader;
   final String customFooter;
 
@@ -26,8 +27,11 @@ class FareBroadcastConfig {
     this.markup = 0.0,
     this.contactName = 'Sorryjith',
     this.contactPhone = '+91 85900 72609',
-    this.customHeader = '✈️ 𝑨𝑬𝑹𝑶𝑺𝑷𝑯𝑬𝑹𝑬 𝑻𝑹𝑨𝑽𝑬𝑳𝑺 ✈️\n\n💎 *AEROSPERE | SPECIAL FARE* 💎\n\n🔥 *BEST DEALS* 🔥',
-    this.customFooter = '📞 *BOOKING & ENQUIRIES*\n\n☎️ {PHONE}\n👤 *Contact Person: {NAME}*\n\n\n✈️ *AeroSphere Travels*\n✨ Your Trusted Travel Partner ✨',
+    this.communityLink = 'https://chat.whatsapp.com/BnPq1svY2fWCraLCpUD5eo',
+    this.customHeader =
+        '✈️ 𝑨𝑬𝑹𝑶𝑺𝑷𝑯𝑬𝑹𝑬 𝑻𝑹𝑨𝑽𝑬𝑳𝑺 ✈️\n\n💎 *AEROSPERE | SPECIAL FARE* 💎\n\n🔥 *BEST DEALS* 🔥',
+    this.customFooter =
+        '📞 *BOOKING & ENQUIRIES*\n\n☎️ {PHONE}\n👤 *Contact Person: {NAME}*\n\n\n✈️ *AeroSphere Travels*\n✨ Your Trusted Travel Partner ✨\n\n📍 *Join our WhatsApp Community for Daily Updates:*\n{COMMUNITY_LINK}',
   });
 
   FareBroadcastConfig copyWith({
@@ -36,6 +40,7 @@ class FareBroadcastConfig {
     double? markup,
     String? contactName,
     String? contactPhone,
+    String? communityLink,
     String? customHeader,
     String? customFooter,
   }) {
@@ -45,6 +50,7 @@ class FareBroadcastConfig {
       markup: markup ?? this.markup,
       contactName: contactName ?? this.contactName,
       contactPhone: contactPhone ?? this.contactPhone,
+      communityLink: communityLink ?? this.communityLink,
       customHeader: customHeader ?? this.customHeader,
       customFooter: customFooter ?? this.customFooter,
     );
@@ -121,7 +127,8 @@ class FareBroadcastConfig {
     // 3. Footer
     String footer = customFooter
         .replaceAll('{PHONE}', contactPhone)
-        .replaceAll('{NAME}', contactName);
+        .replaceAll('{NAME}', contactName)
+        .replaceAll('{COMMUNITY_LINK}', communityLink);
     buffer.writeln(footer.trim());
 
     return buffer.toString().trim();
@@ -333,11 +340,12 @@ class FareBroadcastNotifier extends AsyncNotifier<FareBroadcastConfig> {
     });
   }
 
-  void updateContactDetails({String? name, String? phone}) {
+  void updateContactDetails({String? name, String? phone, String? communityLink}) {
     state.whenData((config) {
       state = AsyncValue.data(config.copyWith(
         contactName: name ?? config.contactName,
         contactPhone: phone ?? config.contactPhone,
+        communityLink: communityLink ?? config.communityLink,
       ));
     });
   }

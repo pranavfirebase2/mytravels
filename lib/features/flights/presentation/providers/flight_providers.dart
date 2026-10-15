@@ -33,6 +33,16 @@ class AgencyFlightsNotifier extends AsyncNotifier<List<Flight>> {
     }
   }
 
+  Future<void> updateFlight(Flight flight) async {
+    try {
+      final repository = ref.read(flightRepositoryProvider);
+      await repository.updateFlight(flight);
+      await loadFlights(flight.agencyId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> deleteFlight(String flightId, String agencyId) async {
     try {
       final repository = ref.read(flightRepositoryProvider);

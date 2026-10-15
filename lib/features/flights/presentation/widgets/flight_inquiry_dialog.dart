@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/url_helper.dart';
 
@@ -6,7 +7,9 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../agency/domain/entities/agency.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
+import '../../../fare_broadcast/presentation/providers/fare_broadcast_providers.dart';
 import '../../domain/entities/flight.dart';
+import '../providers/flight_providers.dart';
 
 /// Shows the flight inquiry popup with From number (9526429827) and To number (agency number).
 /// If agency number is not added, clearly displays 'Agency number not added' and allows entering/saving.
@@ -64,6 +67,30 @@ void showFlightInquiryDialog({
                         style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
                       ),
                     ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Copy Inquiry Message',
+                  icon: const Icon(Icons.copy_rounded, size: 20, color: AppColors.primaryBlue),
+                  onPressed: () {
+                    final message = generateFlightInquiryMessage(
+                      flight: flight,
+                      src: src,
+                      dst: dst,
+                    );
+                    copyInquiryMessageToClipboard(context, message);
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Delete this flight rate',
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.errorRed),
+                  onPressed: () => _confirmAndDeleteFlight(
+                    context: context,
+                    dialogContext: dialogContext,
+                    ref: ref,
+                    flight: flight,
+                    src: src,
+                    dst: dst,
                   ),
                 ),
                 IconButton(
@@ -352,92 +379,128 @@ void showFlightInquiryDialog({
                 ),
               ),
             ),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Close', style: TextStyle(color: AppColors.buttonGrey)),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 1,
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.errorRed,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                onPressed: () async {
-                  final targetPhone = manualPhoneController.text.trim().isNotEmpty
-                      ? manualPhoneController.text.trim()
-                      : (agency?.whatsappNumber.trim() ?? '');
+                onPressed: () => _confirmAndDeleteFlight(
+                  context: context,
+                  dialogContext: dialogContext,
+                  ref: ref,
+                  flight: flight,
+                  src: src,
+                  dst: dst,
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text(
+                  'Delete Flight',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Close', style: TextStyle(color: AppColors.buttonGrey)),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryBlue,
+                      side: const BorderSide(color: AppColors.primaryBlue),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      final message = generateFlightInquiryMessage(
+                        flight: flight,
+                        src: src,
+                        dst: dst,
+                      );
+                      copyInquiryMessageToClipboard(context, message);
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    label: const Text('Copy Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 1,
+                    ),
+                    onPressed: () async {
+                      final targetPhone = manualPhoneController.text.trim().isNotEmpty
+                          ? manualPhoneController.text.trim()
+                          : (agency?.whatsappNumber.trim() ?? '');
 
-                  if (targetPhone.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Agency number not added for ${flight.agencyName}. Please enter a phone number or add in Agency Master.'),
-                        backgroundColor: AppColors.errorRed,
-                      ),
-                    );
-                    return;
-                  }
-
-                  // If user entered a new number and saveNumberToAgency is checked, save to Agency Master in Firestore
-                  if (saveNumberToAgency && manualPhoneController.text.trim().isNotEmpty) {
-                    try {
-                      if (agency != null) {
-                        await ref.read(agencyControllerProvider).updateAgency(
-                          agency.copyWith(whatsappNumber: targetPhone),
-                        );
-                      } else {
-                        await ref.read(agencyControllerProvider).addAgency(
-                          Agency(
-                            id: '',
-                            name: flight.agencyName,
-                            whatsappNumber: targetPhone,
-                            comparisonDeduction: deduction,
-                            isStarred: false,
+                      if (targetPhone.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Agency number not added for ${flight.agencyName}. Please enter a phone number or add in Agency Master.'),
+                            backgroundColor: AppColors.errorRed,
                           ),
                         );
+                        return;
                       }
-                    } catch (_) {
-                      // Silently ignore or let WhatsApp proceed
-                    }
-                  }
 
-                  final srcAirport = AppStrings.airportNames[src] ?? src;
-                  final dstAirport = AppStrings.airportNames[dst] ?? dst;
-                  final formattedDate = _formatDateForMessage(flight);
+                      // If user entered a new number and saveNumberToAgency is checked, save to Agency Master in Firestore
+                      if (saveNumberToAgency && manualPhoneController.text.trim().isNotEmpty) {
+                        try {
+                          if (agency != null) {
+                            await ref.read(agencyControllerProvider).updateAgency(
+                              agency.copyWith(whatsappNumber: targetPhone),
+                            );
+                          } else {
+                            await ref.read(agencyControllerProvider).addAgency(
+                              Agency(
+                                id: '',
+                                name: flight.agencyName,
+                                whatsappNumber: targetPhone,
+                                comparisonDeduction: deduction,
+                                isStarred: false,
+                              ),
+                            );
+                          }
+                        } catch (_) {
+                          // Silently ignore or let WhatsApp proceed
+                        }
+                      }
 
-                  final viaAirport = flight.via.isNotEmpty ? (AppStrings.airportNames[flight.via] ?? flight.via) : '';
-                  final connectionLine = flight.via.isNotEmpty
-                      ? '\n🔄 Connection: Via $viaAirport (${flight.via})'
-                      : '';
-
-                  final message = '''Hi, 
-please check the availability for this flight.
-✈️ Flight: ${flight.airline} ${flight.flightNumber}${flight.via.isNotEmpty ? " (Via ${flight.via})" : ""}
-📅 Date: $formattedDate
-📍 From: $srcAirport ($src)
-📍 To: $dstAirport ($dst)$connectionLine''';
-
-                  var cleanPhone = targetPhone.replaceAll(RegExp(r'[^0-9]'), '');
-                  if (cleanPhone.length == 10) {
-                    cleanPhone = '91$cleanPhone';
-                  }
-
-                  final url = 'https://wa.me/$cleanPhone?text=${Uri.encodeComponent(message)}';
-
-                  try {
-                    await openExternalUrl(url);
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Could not open WhatsApp: $e')),
+                      final message = generateFlightInquiryMessage(
+                        flight: flight,
+                        src: src,
+                        dst: dst,
                       );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.chat_bubble_rounded, size: 18),
-                label: const Text('Connect Agent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+
+                      var cleanPhone = targetPhone.replaceAll(RegExp(r'[^0-9]'), '');
+                      if (cleanPhone.length == 10) {
+                        cleanPhone = '91$cleanPhone';
+                      }
+
+                      final encodedMsg = Uri.encodeComponent(message);
+                      final url = 'https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedMsg';
+
+                      try {
+                        await openExternalUrl(url);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Could not open WhatsApp: $e')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+                    label: const Text('Connect Agent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                ],
               ),
             ],
           );
@@ -462,7 +525,7 @@ Widget _buildSpecRow(IconData icon, String label, String value, {TextStyle? valu
   );
 }
 
-String _formatDateForMessage(Flight flight) {
+String formatFlightDateForMessage(Flight flight) {
   const fullMonths = [
     '', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -504,4 +567,254 @@ String _formatDateForMessage(Flight flight) {
   } catch (_) {}
 
   return flight.date;
+}
+
+String generateFlightInquiryMessage({
+  required Flight flight,
+  required String src,
+  required String dst,
+}) {
+  final srcAirport = AppStrings.airportNames[src] ?? src;
+  final dstAirport = AppStrings.airportNames[dst] ?? dst;
+  final formattedDate = formatFlightDateForMessage(flight);
+  final airlineName = AppStrings.airlineNames[flight.airline] ?? flight.airline;
+
+  String cleanFlightNo = flight.flightNumber.trim().toUpperCase();
+  final cleanAirline = flight.airline.trim().toUpperCase();
+  if (cleanFlightNo.isNotEmpty && cleanFlightNo != '—') {
+    if (cleanAirline.isNotEmpty && !cleanFlightNo.startsWith(cleanAirline)) {
+      cleanFlightNo = '$cleanAirline $cleanFlightNo';
+    }
+  } else {
+    cleanFlightNo = cleanAirline;
+  }
+
+  final flightDisplay = (cleanFlightNo.isNotEmpty && cleanFlightNo != airlineName)
+      ? '$airlineName ($cleanFlightNo)'
+      : airlineName;
+
+  final viaAirport = flight.via.isNotEmpty ? (AppStrings.airportNames[flight.via] ?? flight.via) : '';
+  final connectionLine = flight.via.isNotEmpty
+      ? '\n🔄 Connection: Via $viaAirport (${flight.via})'
+      : '';
+  final baggageLine = flight.baggage.isNotEmpty &&
+          flight.baggage != '—' &&
+          flight.baggage.toLowerCase() != 'no baggage info'
+      ? '\n🧳 Baggage: ${flight.baggage}'
+      : '';
+  final timingLine = flight.timing.isNotEmpty &&
+          flight.timing != '—' &&
+          flight.timing.toLowerCase() != 'no timing'
+      ? '\n⏰ Timing: ${flight.timing}'
+      : '';
+
+  final fareStr = '₹${flight.marketedPrice.toInt()}/-';
+
+  return '''Hi,
+Please check availability for this flight:
+
+✈️ Flight: $flightDisplay$connectionLine
+📅 Date: $formattedDate
+💰 Fare: $fareStr
+📍 Sector: $srcAirport ($src) ➝ $dstAirport ($dst)$baggageLine$timingLine
+
+Is this flight available for $fareStr on $formattedDate? Please confirm.''';
+}
+
+void copyInquiryMessageToClipboard(BuildContext context, String message) {
+  Clipboard.setData(ClipboardData(text: message));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Row(
+        children: [
+          Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Inquiry message copied! Ready to paste into WhatsApp.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: const Color(0xFF059669),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 3),
+    ),
+  );
+}
+
+Future<void> _confirmAndDeleteFlight({
+  required BuildContext context,
+  required BuildContext dialogContext,
+  required WidgetRef ref,
+  required Flight flight,
+  required String src,
+  required String dst,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (confirmCtx) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.errorRed.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_forever_rounded,
+                color: AppColors.errorRed,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Delete Flight Rate?',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to permanently delete this flight entry from the sector table?',
+              style: TextStyle(fontSize: 13, color: AppColors.buttonGrey),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.business_rounded, size: 14, color: Color(0xFF991B1B)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          flight.agencyName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF991B1B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${flight.airline} ${flight.flightNumber}${flight.via.isNotEmpty ? " (Via ${flight.via})" : ""}  •  ${flight.date}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '$src ➝ $dst',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                      Text(
+                        '₹${flight.marketedPrice.toInt()}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(confirmCtx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.buttonGrey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.delete_rounded, size: 16),
+            label: const Text('Delete Now', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.of(confirmCtx).pop(true),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed == true) {
+    try {
+      await ref.read(flightRepositoryProvider).deleteFlight(flight.id);
+      ref.invalidate(allFlightsProvider);
+      ref.invalidate(fareBroadcastProvider);
+
+      if (dialogContext.mounted) {
+        Navigator.of(dialogContext).pop();
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Deleted ${flight.airline} ${flight.flightNumber} (${flight.agencyName}) successfully.',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete flight: $e'),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
 }

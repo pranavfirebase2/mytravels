@@ -9,6 +9,7 @@ abstract class FlightRepository {
     void Function(int count, int total)? onProgress,
   });
   Future<List<Flight>> getFlightsByAgency(String agencyId);
+  Future<void> updateFlight(Flight flight);
   Future<void> deleteFlight(String flightId);
   Future<void> deleteAllFlightsByAgency(String agencyId);
 }

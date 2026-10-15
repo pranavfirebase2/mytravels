@@ -63,7 +63,7 @@ final agencyUpdateStatusesProvider = Provider<List<AgencyUpdateStatus>>((ref) {
       lastResetTime = latestFlightTime;
     }
 
-    // Determine if full reset occurred today with 11:00 AM cutoff rule
+    // Determine if full reset occurred today with 10:30 AM cutoff rule
     bool updatedToday = false;
     if (lastResetTime != null) {
       final updatedLocal = lastResetTime.toLocal();
@@ -74,11 +74,12 @@ final agencyUpdateStatusesProvider = Provider<List<AgencyUpdateStatus>>((ref) {
         updatedToday = true;
       } else {
         // Full Reset was yesterday or earlier
-        if (now.hour >= 11) {
-          // After 11:00 AM cutoff: strictly outdated if no Full Reset today
+        final isAfterCutoff = now.hour > 10 || (now.hour == 10 && now.minute >= 30);
+        if (isAfterCutoff) {
+          // After 10:30 AM cutoff: strictly outdated if no Full Reset today
           updatedToday = false;
         } else {
-          // Before 11:00 AM: if Full Reset was done yesterday late (within 24 hours), still active
+          // Before 10:30 AM: if Full Reset was done yesterday late (within 24 hours), still active
           updatedToday = now.difference(updatedLocal).inHours < 24;
         }
       }

@@ -135,9 +135,11 @@ class FlightRemoteDataSource {
   Future<List<FlightModel>> getAllFlights() async {
     try {
       final snapshot = await _firestore.collection('flights').get();
-      return snapshot.docs
-          .map((doc) => FlightModel.fromJson(doc.data()))
-          .toList();
+      return snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['id'] = doc.id;
+        return FlightModel.fromJson(data);
+      }).toList();
     } catch (e) {
       throw FirebaseExceptionHandler.handleException(e);
     }
@@ -149,7 +151,11 @@ class FlightRemoteDataSource {
           .collection('flights')
           .where('agencyId', isEqualTo: agencyId)
           .get();
-      final list = snapshot.docs.map((doc) => FlightModel.fromJson(doc.data())).toList();
+      final list = snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['id'] = doc.id;
+        return FlightModel.fromJson(data);
+      }).toList();
       // In-memory sort by createdAt preserves exact WhatsApp order without requiring a Firestore composite index!
       list.sort((a, b) {
         final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -157,6 +163,17 @@ class FlightRemoteDataSource {
         return aTime.compareTo(bTime);
       });
       return list;
+    } catch (e) {
+      throw FirebaseExceptionHandler.handleException(e);
+    }
+  }
+
+  Future<void> updateFlight(FlightModel flight) async {
+    try {
+      await _firestore
+          .collection('flights')
+          .doc(flight.id)
+          .set(flight.toJson(), SetOptions(merge: true));
     } catch (e) {
       throw FirebaseExceptionHandler.handleException(e);
     }

@@ -10,6 +10,7 @@ import '../../../flights/presentation/providers/flight_providers.dart';
 import '../../../flights/domain/entities/flight.dart';
 import '../../../agency/presentation/providers/agency_providers.dart';
 import '../providers/import_history_providers.dart';
+import '../../../fare_broadcast/presentation/providers/fare_broadcast_providers.dart';
 
 enum ImportReplaceMode {
   sectorOnly,
@@ -176,70 +177,143 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                       decoration: BoxDecoration(
                         color: AppColors.scaffoldBackground,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
                       ),
+                      clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          RadioListTile<ImportReplaceMode>(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                            dense: true,
-                            value: ImportReplaceMode.sectorOnly,
-                            groupValue: replaceMode,
-                            activeColor: AppColors.primaryBlue,
-                            onChanged: (val) {
-                              setDialogState(() {
-                                replaceMode = val ?? ImportReplaceMode.sectorOnly;
-                              });
-                            },
-                            title: Text(
-                              'Replace ONLY detected sector(s) (${uniqueSectors.length})',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              'Safe update: Replaces only these ${uniqueSectors.length} sector(s). All other sectors of $agencyName stay safe.',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textGrey),
+                          Container(
+                            color: replaceMode == ImportReplaceMode.sectorOnly
+                                ? AppColors.primaryBlue.withValues(alpha: 0.08)
+                                : Colors.transparent,
+                            child: RadioListTile<ImportReplaceMode>(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              dense: true,
+                              value: ImportReplaceMode.sectorOnly,
+                              groupValue: replaceMode,
+                              activeColor: AppColors.primaryBlue,
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  replaceMode = val ?? ImportReplaceMode.sectorOnly;
+                                });
+                              },
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Replace ONLY detected sector(s) (${uniqueSectors.length})',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: replaceMode == ImportReplaceMode.sectorOnly ? AppColors.primaryBlue : AppColors.textBlack,
+                                      ),
+                                    ),
+                                  ),
+                                  if (replaceMode == ImportReplaceMode.sectorOnly)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryBlue,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text('SELECTED', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                'Safe update: Replaces only these ${uniqueSectors.length} sector(s). All other sectors of $agencyName stay safe.',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textGrey),
+                              ),
                             ),
                           ),
                           const Divider(height: 1),
-                          RadioListTile<ImportReplaceMode>(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                            dense: true,
-                            value: ImportReplaceMode.fullAgency,
-                            groupValue: replaceMode,
-                            activeColor: Colors.orange.shade800,
-                            onChanged: (val) {
-                              setDialogState(() {
-                                replaceMode = val ?? ImportReplaceMode.fullAgency;
-                              });
-                            },
-                            title: Text(
-                              'Replace ALL flights for $agencyName (Full Daily Reset)',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: const Text(
-                              'Daily Master: Deletes ALL previous flights of this agency and puts this fresh list (clears ended sectors).',
-                              style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+                          Container(
+                            color: replaceMode == ImportReplaceMode.fullAgency
+                                ? Colors.orange.shade50
+                                : Colors.transparent,
+                            child: RadioListTile<ImportReplaceMode>(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              dense: true,
+                              value: ImportReplaceMode.fullAgency,
+                              groupValue: replaceMode,
+                              activeColor: Colors.orange.shade800,
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  replaceMode = val ?? ImportReplaceMode.fullAgency;
+                                });
+                              },
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Replace ALL flights for $agencyName (Full Daily Reset)',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: replaceMode == ImportReplaceMode.fullAgency ? Colors.orange.shade900 : AppColors.textBlack,
+                                      ),
+                                    ),
+                                  ),
+                                  if (replaceMode == ImportReplaceMode.fullAgency)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade800,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text('SELECTED', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    ),
+                                ],
+                              ),
+                              subtitle: const Text(
+                                'Daily Master: Deletes ALL previous flights of this agency and puts this fresh list (clears ended sectors).',
+                                style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+                              ),
                             ),
                           ),
                           const Divider(height: 1),
-                          RadioListTile<ImportReplaceMode>(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                            dense: true,
-                            value: ImportReplaceMode.appendOnly,
-                            groupValue: replaceMode,
-                            activeColor: AppColors.successGreen,
-                            onChanged: (val) {
-                              setDialogState(() {
-                                replaceMode = val ?? ImportReplaceMode.appendOnly;
-                              });
-                            },
-                            title: const Text(
-                              'Append / Add without deleting anything',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: const Text(
-                              'Keeps all existing flights and just adds these new flights.',
-                              style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+                          Container(
+                            color: replaceMode == ImportReplaceMode.appendOnly
+                                ? Colors.green.shade50
+                                : Colors.transparent,
+                            child: RadioListTile<ImportReplaceMode>(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              dense: true,
+                              value: ImportReplaceMode.appendOnly,
+                              groupValue: replaceMode,
+                              activeColor: AppColors.successGreen,
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  replaceMode = val ?? ImportReplaceMode.appendOnly;
+                                });
+                              },
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Append / Add without deleting anything',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: replaceMode == ImportReplaceMode.appendOnly ? AppColors.successGreen : AppColors.textBlack,
+                                      ),
+                                    ),
+                                  ),
+                                  if (replaceMode == ImportReplaceMode.appendOnly)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.successGreen,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text('SELECTED', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    ),
+                                ],
+                              ),
+                              subtitle: const Text(
+                                'Keeps all existing flights and just adds these new flights.',
+                                style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+                              ),
                             ),
                           ),
                         ],
@@ -328,17 +402,232 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                   onPressed: () => Navigator.pop(context), // Close without saving
                   child: const Text('Cancel', style: TextStyle(color: AppColors.errorRed)),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: AppColors.white),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: replaceMode == ImportReplaceMode.fullAgency
+                        ? Colors.orange.shade800
+                        : (replaceMode == ImportReplaceMode.sectorOnly ? AppColors.primaryBlue : AppColors.successGreen),
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                  label: const Text('Confirm & Upload'),
                   onPressed: () {
-                    Navigator.pop(context); // Close dialog
-                    _uploadToFirebase(
-                      flights,
-                      replaceSectorFares: replaceMode == ImportReplaceMode.sectorOnly,
-                      replaceAllAgencyFares: replaceMode == ImportReplaceMode.fullAgency,
+                    _showConfirmUploadDialog(
+                      previewContext: context,
+                      flights: flights,
+                      agencyName: agencyName,
+                      initialMode: replaceMode,
+                      uniqueSectors: uniqueSectors,
                     );
                   },
-                  child: const Text('Confirm & Upload'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showConfirmUploadDialog({
+    required BuildContext previewContext,
+    required List<Flight> flights,
+    required String agencyName,
+    required ImportReplaceMode initialMode,
+    required List<String> uniqueSectors,
+  }) {
+    ImportReplaceMode chosenMode = initialMode;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (confirmContext) {
+        return StatefulBuilder(
+          builder: (context, setConfirmState) {
+            final isFullReset = chosenMode == ImportReplaceMode.fullAgency;
+            final isSectorOnly = chosenMode == ImportReplaceMode.sectorOnly;
+
+            final Color themeColor = isFullReset
+                ? Colors.orange.shade800
+                : (isSectorOnly ? AppColors.primaryBlue : AppColors.successGreen);
+
+            final String modeTitle = isFullReset
+                ? 'Replace ALL Flights (Full Daily Reset)'
+                : (isSectorOnly
+                    ? 'Replace ONLY Detected Sector(s) (${uniqueSectors.length})'
+                    : 'Append / Add Without Deleting');
+
+            final String modeExplanation = isFullReset
+                ? '⚠️ ശ്രദ്ധിക്കുക: $agencyName-ന്റെ മുൻപത്തെ എല്ലാ ഫ്ലൈറ്റുകളും നീക്കം ചെയ്യപ്പെടുകയും, ഇപ്പോൾ ഇംപോർട്ട് ചെയ്യുന്ന ഈ fresh ലിസ്റ്റ് റീപ്ലേസ് ആവുകയും ചെയ്യും.\n\n'
+                  '✅ ഏജൻസി ട്രാക്കറിൽ $agencyName ഇന്ന് അപ്‌ഡേറ്റ് ചെയ്തതായി (Updated Today) രേഖപ്പെടുത്തും.'
+                : (isSectorOnly
+                    ? 'ℹ️ കണ്ടെത്തിയ ${uniqueSectors.length} സെക്ടറുകൾ മാത്രമാണ് റീപ്ലേസ് ചെയ്യപ്പെടുക:\n(${uniqueSectors.take(4).join(', ')}${uniqueSectors.length > 4 ? '...' : ''}).\n\n'
+                      'മറ്റ് സെക്ടറുകളിലെ ഫ്ലൈറ്റുകൾ സുരക്ഷിതമായി നിലനിൽക്കും.'
+                    : 'ℹ️ പഴയ ഫ്ലൈറ്റുകൾ ഒന്നും ഡിലീറ്റ് ആവില്ല. ഈ പുതിയ ${flights.length} ഫ്ലൈറ്റുകൾ ലിസ്റ്റിലേക്ക് അധികമായി കൂട്ടിച്ചേർക്കും.');
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: themeColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isFullReset
+                          ? Icons.warning_amber_rounded
+                          : (isSectorOnly ? Icons.rule_rounded : Icons.add_circle_outline_rounded),
+                      color: themeColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'ഇംപോർട്ട് മോഡ് സ്ഥിരീകരിക്കുക',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'ഏജൻസി: $agencyName · ആകെ ${flights.length} ഫ്ലൈറ്റുകൾ',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+                    ),
+                    const SizedBox(height: 12),
+                    // Highlighted Alert Box
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: themeColor.withValues(alpha: 0.4), width: 1.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle_rounded, size: 16, color: themeColor),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  modeTitle,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: themeColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            modeExplanation,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade900,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'മോഡ് മാറ്റണമെങ്കിൽ താഴെ നിന്ന് തിരഞ്ഞെടുക്കാം:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textGrey),
+                    ),
+                    const SizedBox(height: 6),
+                    // Quick mode switcher
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          Container(
+                            color: chosenMode == ImportReplaceMode.fullAgency ? Colors.orange.shade50 : Colors.transparent,
+                            child: RadioListTile<ImportReplaceMode>(
+                              dense: true,
+                              value: ImportReplaceMode.fullAgency,
+                              groupValue: chosenMode,
+                              activeColor: Colors.orange.shade800,
+                              title: const Text('Replace ALL (Full Daily Reset)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              subtitle: const Text('പഴയ ഫ്ലൈറ്റുകൾ ക്ലിയർ ചെയ്ത് പുതിയ മാസ്റ്റർ ലിസ്റ്റ് ആക്കും', style: TextStyle(fontSize: 10, color: AppColors.textGrey)),
+                              onChanged: (val) => setConfirmState(() => chosenMode = val!),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          Container(
+                            color: chosenMode == ImportReplaceMode.sectorOnly ? AppColors.primaryBlue.withValues(alpha: 0.08) : Colors.transparent,
+                            child: RadioListTile<ImportReplaceMode>(
+                              dense: true,
+                              value: ImportReplaceMode.sectorOnly,
+                              groupValue: chosenMode,
+                              activeColor: AppColors.primaryBlue,
+                              title: Text('Replace ONLY detected sectors (${uniqueSectors.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              subtitle: const Text('കണ്ടെത്തിയ സെക്ടറുകൾ മാത്രം മാറ്റും, ബാക്കി സുരക്ഷിതം', style: TextStyle(fontSize: 10, color: AppColors.textGrey)),
+                              onChanged: (val) => setConfirmState(() => chosenMode = val!),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          Container(
+                            color: chosenMode == ImportReplaceMode.appendOnly ? Colors.green.shade50 : Colors.transparent,
+                            child: RadioListTile<ImportReplaceMode>(
+                              dense: true,
+                              value: ImportReplaceMode.appendOnly,
+                              groupValue: chosenMode,
+                              activeColor: AppColors.successGreen,
+                              title: const Text('Append / Add without deleting', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              subtitle: const Text('പഴയത് ഒന്നും മാറ്റാതെ പുതിയവ ലിസ്റ്റിലേക്ക് ചേർക്കും', style: TextStyle(fontSize: 10, color: AppColors.textGrey)),
+                              onChanged: (val) => setConfirmState(() => chosenMode = val!),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(confirmContext),
+                  child: const Text('തിരികെ പോകുക (Back)', style: TextStyle(color: AppColors.buttonGrey)),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                  label: const Text('ശരിയാണ്, Upload ചെയ്യുക', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    Navigator.pop(confirmContext); // Close confirm dialog
+                    Navigator.pop(previewContext); // Close preview dialog
+                    _uploadToFirebase(
+                      flights,
+                      replaceSectorFares: chosenMode == ImportReplaceMode.sectorOnly,
+                      replaceAllAgencyFares: chosenMode == ImportReplaceMode.fullAgency,
+                    );
+                  },
                 ),
               ],
             );
@@ -391,6 +680,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       // Auto-refresh all sectors, sector comparison table, and lowest fare pages
       ref.invalidate(allFlightsProvider);
       ref.invalidate(sectorsProvider);
+      ref.invalidate(fareBroadcastProvider);
       
       if (mounted) {
         LoadingDialog.hide(context);

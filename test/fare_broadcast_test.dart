@@ -125,7 +125,10 @@ void main() {
 
 
 ✈️ *AeroSphere Travels*
-✨ Your Trusted Travel Partner ✨'''.trim();
+✨ Your Trusted Travel Partner ✨
+
+📍 *Join our WhatsApp Community for Daily Updates:*
+https://chat.whatsapp.com/BnPq1svY2fWCraLCpUD5eo'''.trim();
 
       expect(result, equals(expected));
     });

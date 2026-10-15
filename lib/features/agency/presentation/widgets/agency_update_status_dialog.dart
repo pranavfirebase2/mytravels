@@ -96,7 +96,7 @@ class _AgencyUpdateStatusDialogState extends ConsumerState<AgencyUpdateStatusDia
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Replace All (Daily Reset) Tracker • 11:00 AM Cutoff',
+                  'Replace All (Daily Reset) Tracker • 10:30 AM Cutoff',
                   style: TextStyle(fontSize: 12, color: AppColors.textGrey, fontWeight: FontWeight.w500),
                 ),
               ],

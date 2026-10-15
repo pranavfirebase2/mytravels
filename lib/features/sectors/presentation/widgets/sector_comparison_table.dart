@@ -3,6 +3,7 @@ import 'package:sticky_headers/sticky_headers.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../flights/domain/entities/flight.dart';
+import '../../../flights/presentation/widgets/flight_inquiry_dialog.dart';
 
 class SyncScrollControllerGroup {
   final List<ScrollController> _controllers = [];
@@ -138,8 +139,9 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
       return true;
     }
 
-    // Daily 11:00 AM cutoff: after 11:00 AM today, any fare not updated today is outdated
-    if (now.hour >= 11 && createdDate.isBefore(today)) {
+    // Daily 10:30 AM cutoff: after 10:30 AM today, any fare not updated today is outdated
+    final isAfterCutoff = now.hour > 10 || (now.hour == 10 && now.minute >= 30);
+    if (isAfterCutoff && createdDate.isBefore(today)) {
       return true;
     }
 
@@ -575,7 +577,43 @@ class _SectorComparisonTableState extends State<SectorComparisonTable> {
                                                       style: const TextStyle(fontSize: 9, color: AppColors.textGrey),
                                                     ),
                                                     const SizedBox(height: 2),
-                                                    Text(f.baggage.isNotEmpty ? f.baggage : 'No baggage info', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
+                                                    Row(
+                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            f.baggage.isNotEmpty ? f.baggage : 'No baggage info',
+                                                            style: const TextStyle(fontSize: 10, color: AppColors.textGrey),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                        Material(
+                                                          color: Colors.transparent,
+                                                          child: InkWell(
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            onTap: () {
+                                                              final message = generateFlightInquiryMessage(
+                                                                flight: f,
+                                                                src: widget.src,
+                                                                dst: widget.dst,
+                                                              );
+                                                              copyInquiryMessageToClipboard(context, message);
+                                                            },
+                                                            child: const Padding(
+                                                              padding: EdgeInsets.all(2.0),
+                                                              child: Tooltip(
+                                                                message: 'Copy Inquiry Message',
+                                                                child: Icon(
+                                                                  Icons.copy_rounded,
+                                                                  size: 14,
+                                                                  color: AppColors.primaryBlue,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ],
                                                 ),
                                               ),

@@ -8,6 +8,8 @@ import 'package:mytravels/core/widgets/app_layout.dart';
 import 'package:mytravels/features/fare_broadcast/domain/entities/broadcast_item.dart';
 import 'package:mytravels/features/fare_broadcast/presentation/providers/fare_broadcast_providers.dart';
 
+import '../../../flights/presentation/providers/flight_providers.dart';
+
 class FareBroadcastPage extends ConsumerStatefulWidget {
   const FareBroadcastPage({super.key});
 
@@ -21,8 +23,10 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
   final TextEditingController _markupController = TextEditingController();
   final TextEditingController _contactNameController = TextEditingController();
   final TextEditingController _contactPhoneController = TextEditingController();
+  final TextEditingController _communityLinkController = TextEditingController();
 
   bool _initializedControllers = false;
+  final Set<int> _expandedSectorIndices = {};
 
   @override
   void initState() {
@@ -36,6 +40,7 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
     _markupController.dispose();
     _contactNameController.dispose();
     _contactPhoneController.dispose();
+    _communityLinkController.dispose();
     super.dispose();
   }
 
@@ -45,6 +50,7 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
           config.markup == 0 ? '' : config.markup.toInt().toString();
       _contactNameController.text = config.contactName;
       _contactPhoneController.text = config.contactPhone;
+      _communityLinkController.text = config.communityLink;
       _initializedControllers = true;
     }
   }
@@ -89,10 +95,36 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
     return AppLayout(
       activeRoute: '/fare-broadcast',
       child: broadcastAsync.when(
-        loading: () => const Center(
-          child: Padding(
-            padding: EdgeInsets.all(48.0),
-            child: CircularProgressIndicator(),
+        loading: () => SizedBox(
+          height: 450,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Loading Fare Broadcast Data...',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.headerDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Computing lowest fares and checking sector deals',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textGrey,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         error: (err, _) => Center(
@@ -269,6 +301,20 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: 'Refresh Fares from Database',
+                icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.primaryBlue),
+                onPressed: () {
+                  ref.invalidate(allFlightsProvider);
+                  ref.invalidate(fareBroadcastProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Refreshing latest fares from database...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           const Divider(height: 24),
@@ -390,6 +436,28 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
                   },
                 ),
               ),
+
+              // WhatsApp Community Link
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _communityLinkController,
+                  decoration: const InputDecoration(
+                    labelText: 'Community Link (Bottom of flyer)',
+                    hintText: 'https://chat.whatsapp.com/...',
+                    prefixIcon: Icon(Icons.groups_rounded, size: 18),
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    isDense: true,
+                  ),
+                  onChanged: (val) {
+                    ref
+                        .read(fareBroadcastProvider.notifier)
+                        .updateContactDetails(communityLink: val.trim());
+                  },
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -422,6 +490,29 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
                   ref
                       .read(fareBroadcastProvider.notifier)
                       .toggleAllSectors(false);
+                },
+              ),
+              TextButton.icon(
+                icon: Icon(
+                  _expandedSectorIndices.length >= config.sectors.length && config.sectors.isNotEmpty
+                      ? Icons.unfold_less_rounded
+                      : Icons.unfold_more_rounded,
+                  size: 16,
+                ),
+                label: Text(
+                  _expandedSectorIndices.length >= config.sectors.length && config.sectors.isNotEmpty
+                      ? 'Collapse All'
+                      : 'Expand All',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onPressed: () {
+                  setState(() {
+                    if (_expandedSectorIndices.length >= config.sectors.length) {
+                      _expandedSectorIndices.clear();
+                    } else {
+                      _expandedSectorIndices.addAll(List.generate(config.sectors.length, (i) => i));
+                    }
+                  });
                 },
               ),
             ],
@@ -486,7 +577,17 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
         ],
       ),
       child: ExpansionTile(
-        initiallyExpanded: sector.isSelected,
+        key: ValueKey('sec_${sectorIdx}_${_expandedSectorIndices.contains(sectorIdx)}'),
+        initiallyExpanded: _expandedSectorIndices.contains(sectorIdx),
+        onExpansionChanged: (isExpanded) {
+          setState(() {
+            if (isExpanded) {
+              _expandedSectorIndices.add(sectorIdx);
+            } else {
+              _expandedSectorIndices.remove(sectorIdx);
+            }
+          });
+        },
         shape: const Border(),
         leading: Checkbox(
           value: sector.isSelected,
@@ -598,126 +699,11 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
                   runSpacing: 8,
                   children: List.generate(sector.dates.length, (dateIdx) {
                     final d = sector.dates[dateIdx];
-                    final price = (d.lowestPrice + config.markup).round();
-
-                    return FilterChip(
-                      selected: d.isSelected,
-                      selectedColor: const Color(0xFFDCFCE7),
-                      checkmarkColor: const Color(0xFF166534),
-                      side: BorderSide(
-                        color: d.isSelected
-                            ? const Color(0xFF22C55E)
-                            : Colors.grey.withValues(alpha: 0.3),
-                      ),
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            d.displayDate,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: d.isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: d.isSelected
-                                  ? const Color(0xFF166534)
-                                  : Colors.black87,
-                            ),
-                          ),
-                          if (d.flightNumber.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: d.isSelected
-                                    ? const Color(0xFFBBF7D0)
-                                    : Colors.grey.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                d.flightNumber,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: d.isSelected
-                                      ? const Color(0xFF14532D)
-                                      : Colors.black87,
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: d.isSelected
-                                  ? const Color(0xFF16A34A)
-                                  : Colors.grey.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '₹$price',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: d.isSelected
-                                    ? Colors.white
-                                    : Colors.black54,
-                              ),
-                            ),
-                          ),
-                          if (d.via.isNotEmpty) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(4),
-                                border:
-                                    Border.all(color: const Color(0xFFFDE68A)),
-                              ),
-                              child: Text(
-                                'Via ${d.via}',
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF92400E),
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(width: 4),
-                          InkWell(
-                            onTap: () =>
-                                _showEditDateDialog(sectorIdx, dateIdx, d),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: Icon(
-                                Icons.edit_rounded,
-                                size: 12,
-                                color: d.isSelected
-                                    ? const Color(0xFF166534)
-                                    : Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      onSelected: (selected) {
-                        ref
-                            .read(fareBroadcastProvider.notifier)
-                            .toggleDate(sectorIdx, dateIdx, selected);
-                      },
+                    return _buildDateChip(
+                      config: config,
+                      date: d,
+                      sectorIdx: sectorIdx,
+                      dateIdx: dateIdx,
                     );
                   }),
                 ),
@@ -725,6 +711,140 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDateChip({
+    required FareBroadcastConfig config,
+    required BroadcastDateItem date,
+    required int sectorIdx,
+    required int dateIdx,
+  }) {
+    final price = (date.lowestPrice + config.markup).round();
+    final isSelected = date.isSelected;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          ref
+              .read(fareBroadcastProvider.notifier)
+              .toggleDate(sectorIdx, dateIdx, !isSelected);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFDCFCE7) : const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF22C55E)
+                  : Colors.grey.withValues(alpha: 0.3),
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 15,
+                color: isSelected ? const Color(0xFF166534) : Colors.grey,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                date.displayDate,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight:
+                      isSelected ? FontWeight.bold : FontWeight.w500,
+                  color:
+                      isSelected ? const Color(0xFF166534) : Colors.black87,
+                ),
+              ),
+              if (date.flightNumber.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFBBF7D0)
+                        : Colors.grey.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    date.flightNumber,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? const Color(0xFF14532D)
+                          : Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 5),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF16A34A)
+                      : Colors.grey.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '₹$price',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              if (date.via.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Text(
+                    'Via ${date.via}',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => _showEditDateDialog(sectorIdx, dateIdx, date),
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 13,
+                    color: isSelected ? const Color(0xFF166534) : Colors.grey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

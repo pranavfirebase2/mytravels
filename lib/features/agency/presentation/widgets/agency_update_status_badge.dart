@@ -19,7 +19,7 @@ class AgencyUpdateStatusBadge extends ConsumerWidget {
 
     return Tooltip(
       message: hasOutdated
-          ? '$outdatedCount agencies have not updated today (11 AM cutoff)'
+          ? '$outdatedCount agencies have not updated today (10:30 AM cutoff)'
           : 'All agencies are updated today!',
       child: Material(
         color: Colors.transparent,

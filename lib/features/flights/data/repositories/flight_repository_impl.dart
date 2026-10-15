@@ -51,6 +51,28 @@ class FlightRepositoryImpl implements FlightRepository {
   }
 
   @override
+  Future<void> updateFlight(Flight flight) {
+    final model = FlightModel(
+      id: flight.id,
+      agencyId: flight.agencyId,
+      agencyName: flight.agencyName,
+      source: flight.source,
+      destination: flight.destination,
+      date: flight.date,
+      airline: flight.airline,
+      flightNumber: flight.flightNumber,
+      timing: flight.timing,
+      baggage: flight.baggage,
+      seats: flight.seats,
+      marketedPrice: flight.marketedPrice,
+      parsedDate: flight.parsedDate,
+      createdAt: flight.createdAt ?? DateTime.now(),
+      via: flight.via,
+    );
+    return _remoteDataSource.updateFlight(model);
+  }
+
+  @override
   Future<void> deleteFlight(String flightId) {
     return _remoteDataSource.deleteFlight(flightId);
   }

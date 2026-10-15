@@ -32,4 +32,40 @@ class Flight {
     this.createdAt,
     this.via = '',
   });
+
+  Flight copyWith({
+    String? id,
+    String? agencyId,
+    String? agencyName,
+    String? source,
+    String? destination,
+    String? date,
+    String? airline,
+    String? flightNumber,
+    String? timing,
+    String? baggage,
+    String? seats,
+    double? marketedPrice,
+    DateTime? parsedDate,
+    DateTime? createdAt,
+    String? via,
+  }) {
+    return Flight(
+      id: id ?? this.id,
+      agencyId: agencyId ?? this.agencyId,
+      agencyName: agencyName ?? this.agencyName,
+      source: source ?? this.source,
+      destination: destination ?? this.destination,
+      date: date ?? this.date,
+      airline: airline ?? this.airline,
+      flightNumber: flightNumber ?? this.flightNumber,
+      timing: timing ?? this.timing,
+      baggage: baggage ?? this.baggage,
+      seats: seats ?? this.seats,
+      marketedPrice: marketedPrice ?? this.marketedPrice,
+      parsedDate: parsedDate ?? this.parsedDate,
+      createdAt: createdAt ?? this.createdAt,
+      via: via ?? this.via,
+    );
+  }
 }
