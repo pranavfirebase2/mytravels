@@ -403,6 +403,14 @@ class _SectorDetailsPageState extends ConsumerState<SectorDetailsPage> {
                         ),
                       ],
                     ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.sync_rounded, size: 20, color: AppColors.primaryBlue),
+                      tooltip: 'Sync latest fares',
+                      onPressed: () {
+                        ref.invalidate(allFlightsProvider);
+                      },
+                    ),
                   ],
                 ),
                 Wrap(

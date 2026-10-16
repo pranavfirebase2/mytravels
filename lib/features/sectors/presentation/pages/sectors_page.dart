@@ -87,8 +87,8 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                       children: [
                         Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
+                          children: [
+                            const Text(
                               'All Sectors',
                               style: TextStyle(
                                 fontSize: 22,
@@ -96,8 +96,16 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                                 color: AppColors.primaryBlue,
                               ),
                             ),
-                            SizedBox(width: 8),
-                            AgencyUpdateStatusBadge(compact: true),
+                            const SizedBox(width: 8),
+                            const AgencyUpdateStatusBadge(compact: true),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.sync_rounded, size: 20, color: AppColors.primaryBlue),
+                              tooltip: 'Sync latest sectors',
+                              onPressed: () {
+                                ref.invalidate(allFlightsProvider);
+                              },
+                            ),
                           ],
                         ),
                         if (_selectedFrom != null || _selectedTo != null || _searchQuery.isNotEmpty)
@@ -207,13 +215,21 @@ class _SectorsPageState extends ConsumerState<SectorsPage> {
                 children: [
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'All Sectors',
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
                       ),
-                      SizedBox(width: 12),
-                      AgencyUpdateStatusBadge(),
+                      const SizedBox(width: 12),
+                      const AgencyUpdateStatusBadge(),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        icon: const Icon(Icons.sync_rounded, size: 20, color: AppColors.primaryBlue),
+                        tooltip: 'Sync latest sectors',
+                        onPressed: () {
+                          ref.invalidate(allFlightsProvider);
+                        },
+                      ),
                     ],
                   ),
                   Row(

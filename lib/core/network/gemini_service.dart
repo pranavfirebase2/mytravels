@@ -491,6 +491,7 @@ CRITICAL RULES:
     String currentBaggage = '—';
     String currentTiming = '—';
     String? currentGroupAirline;
+    String? currentSectionAirline;
 
     for (final raw in lines) {
       final line = raw.trim();
@@ -585,6 +586,7 @@ CRITICAL RULES:
           } else if (gNum == '3') {
             currentGroupAirline = '6E'; // IndiGo
           }
+          currentSectionAirline = currentGroupAirline;
           currentAirline = currentGroupAirline ?? '—';
           currentFlightNum = '—';
           continue;
@@ -594,8 +596,8 @@ CRITICAL RULES:
           currentSrc = lineSrc;
           currentDst = lineDst;
           currentVia = lineVia ?? '';
-          // Sector header resets sector-specific defaults
-          currentAirline = currentGroupAirline ?? '—';
+          // Sector header resets sector-specific defaults while retaining section/group airline
+          currentAirline = currentSectionAirline ?? currentGroupAirline ?? '—';
           currentFlightNum = '—';
           currentBaggage = '—';
           currentTiming = '—';
@@ -608,6 +610,9 @@ CRITICAL RULES:
           if (!_months.contains(code) && code != currentSrc && code != currentDst) {
             currentAirline = code;
             currentFlightNum = fn.group(2)!;
+            if (lineSrc == null) {
+              currentSectionAirline = code;
+            }
           }
         } else {
           final sa = standaloneAirlineRegex.firstMatch(line);
@@ -616,6 +621,9 @@ CRITICAL RULES:
             if (code != currentSrc && code != currentDst) {
               currentAirline = code;
               currentFlightNum = '—';
+              if (lineSrc == null) {
+                currentSectionAirline = code;
+              }
             }
           }
         }

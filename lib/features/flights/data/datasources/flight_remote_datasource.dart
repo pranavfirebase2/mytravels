@@ -145,6 +145,16 @@ class FlightRemoteDataSource {
     }
   }
 
+  Stream<List<FlightModel>> watchAllFlights() {
+    return _firestore.collection('flights').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['id'] = doc.id;
+        return FlightModel.fromJson(data);
+      }).toList();
+    });
+  }
+
   Future<List<FlightModel>> getFlightsByAgency(String agencyId) async {
     try {
       final snapshot = await _firestore

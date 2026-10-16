@@ -423,4 +423,57 @@ CCJ MCT SHJ 29 OCT 19000
     expect(flights[0]['date'], equals('21 OCT'));
     expect(flights[0]['marketedPrice'], equals(19500.0));
   });
+
+  test('GeminiService parses hierarchical airline section headers (e.g. SPICE JET, AIR INDIA EXPRESS, AIR ARABIA, INDIGO)', () async {
+    const sample = '''
+*SPICE JET*
+*COK - DXB*
+18-Oct	13000
+19-25 OCT	12000
+*CCJ-DXB*
+17-Oct	15800
+
+*AIR INDIA EXPRESS*
+*TRV-DXB*
+21-Oct	17500
+*TRV-SHJ*
+22-Oct	17500
+
+*AIR ARABIA*
+*CCJ-RKT*
+21-Oct	20900
+
+*INDIGO*
+*IXE - AUH*
+01-05 NOV	17000
+
+*Incase of Flight Cancellation only Full refund will be provided*
+''';
+
+    final service = GeminiService();
+    final flights = await service.parseFlightData(sample);
+
+    // Verify SpiceJet
+    final spiceJetFlights = flights.where((f) => f['airline'] == 'SG').toList();
+    expect(spiceJetFlights.isNotEmpty, isTrue);
+    expect(spiceJetFlights.any((f) => f['source'] == 'COK' && f['destination'] == 'DXB'), isTrue);
+    expect(spiceJetFlights.any((f) => f['source'] == 'CCJ' && f['destination'] == 'DXB'), isTrue);
+
+    // Verify Air India Express
+    final airIndiaExpressFlights = flights.where((f) => f['airline'] == 'IX').toList();
+    expect(airIndiaExpressFlights.isNotEmpty, isTrue);
+    expect(airIndiaExpressFlights.any((f) => f['source'] == 'TRV' && f['destination'] == 'DXB'), isTrue);
+    expect(airIndiaExpressFlights.any((f) => f['source'] == 'TRV' && f['destination'] == 'SHJ'), isTrue);
+
+    // Verify Air Arabia
+    final airArabiaFlights = flights.where((f) => f['airline'] == 'G9').toList();
+    expect(airArabiaFlights.isNotEmpty, isTrue);
+    expect(airArabiaFlights.any((f) => f['source'] == 'CCJ' && f['destination'] == 'RKT'), isTrue);
+
+    // Verify Indigo
+    final indigoFlights = flights.where((f) => f['airline'] == '6E').toList();
+    expect(indigoFlights.isNotEmpty, isTrue);
+    expect(indigoFlights.any((f) => f['source'] == 'IXE' && f['destination'] == 'AUH'), isTrue);
+  });
 }
+

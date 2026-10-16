@@ -68,9 +68,9 @@ final agencyFlightsProvider = AsyncNotifierProvider<AgencyFlightsNotifier, List<
   return AgencyFlightsNotifier();
 });
 
-final allFlightsProvider = FutureProvider<List<Flight>>((ref) async {
+final allFlightsProvider = StreamProvider<List<Flight>>((ref) {
   final repository = ref.watch(flightRepositoryProvider);
-  return repository.getAllFlights();
+  return repository.watchAllFlights();
 });
 
 class SectorData {
@@ -81,36 +81,38 @@ class SectorData {
   SectorData({required this.src, required this.dst, required this.airlines});
 }
 
-final sectorsProvider = FutureProvider<List<SectorData>>((ref) async {
-  final flights = await ref.watch(allFlightsProvider.future);
+final sectorsProvider = Provider<AsyncValue<List<SectorData>>>((ref) {
+  final flightsAsync = ref.watch(allFlightsProvider);
   
-  final validCode = RegExp(r'^[A-Z]{3}$');
-  final Map<String, Set<String>> sectorMap = {};
-  for (var flight in flights) {
-    final src = flight.source.toUpperCase().trim();
-    final dst = flight.destination.toUpperCase().trim();
-    if (!validCode.hasMatch(src) || !validCode.hasMatch(dst)) {
-      continue;
+  return flightsAsync.whenData((flights) {
+    final validCode = RegExp(r'^[A-Z]{3}$');
+    final Map<String, Set<String>> sectorMap = {};
+    for (var flight in flights) {
+      final src = flight.source.toUpperCase().trim();
+      final dst = flight.destination.toUpperCase().trim();
+      if (!validCode.hasMatch(src) || !validCode.hasMatch(dst)) {
+        continue;
+      }
+      final key = '$src-$dst';
+      if (!sectorMap.containsKey(key)) {
+        sectorMap[key] = {};
+      }
+      if (flight.airline.isNotEmpty) {
+        sectorMap[key]!.add(flight.airline);
+      }
     }
-    final key = '$src-$dst';
-    if (!sectorMap.containsKey(key)) {
-      sectorMap[key] = {};
-    }
-    if (flight.airline.isNotEmpty) {
-      sectorMap[key]!.add(flight.airline);
-    }
-  }
 
-  final List<SectorData> sectors = sectorMap.entries.map((entry) {
-    final parts = entry.key.split('-');
-    return SectorData(
-      src: parts[0],
-      dst: parts[1],
-      airlines: entry.value.toList()..sort(),
-    );
-  }).toList();
-  
-  sectors.sort((a, b) => a.src.compareTo(b.src) == 0 ? a.dst.compareTo(b.dst) : a.src.compareTo(b.src));
+    final List<SectorData> sectors = sectorMap.entries.map((entry) {
+      final parts = entry.key.split('-');
+      return SectorData(
+        src: parts[0],
+        dst: parts[1],
+        airlines: entry.value.toList()..sort(),
+      );
+    }).toList();
+    
+    sectors.sort((a, b) => a.src.compareTo(b.src) == 0 ? a.dst.compareTo(b.dst) : a.src.compareTo(b.src));
 
-  return sectors;
+    return sectors;
+  });
 });

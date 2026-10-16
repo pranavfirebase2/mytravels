@@ -89,7 +89,7 @@ void main() {
           ),
         ],
         priceMode: PriceDisplayMode.specialFareText,
-        contactName: 'Sorryjith',
+        contactName: 'Sooryajith',
         contactPhone: '+91 85900 72609',
       );
 
@@ -121,7 +121,7 @@ void main() {
 📞 *BOOKING & ENQUIRIES*
 
 ☎️ +91 85900 72609
-👤 *Contact Person: Sorryjith*
+👤 *Contact Person: Sooryajith*
 
 
 ✈️ *AeroSphere Travels*
@@ -161,7 +161,7 @@ https://chat.whatsapp.com/BnPq1svY2fWCraLCpUD5eo'''.trim();
       expect(text.contains('🔹 17 OCT  —  13000/-'), isTrue);
     });
 
-    test('generateBroadcastText outputs Flight and Amount format by default', () {
+    test('generateBroadcastText outputs Flight and Amount format by default with 300 margin', () {
       final config = FareBroadcastConfig(
         sectors: [
           BroadcastSectorItem(
@@ -185,7 +185,11 @@ https://chat.whatsapp.com/BnPq1svY2fWCraLCpUD5eo'''.trim();
       );
 
       final text = config.generateBroadcastText();
-      expect(text.contains('🔹 23 OCT  —  IX 733 - 21000'), isTrue);
+      // Default margin is 300, so 21000 + 300 = 21300
+      expect(text.contains('🔹 23 OCT  —  IX 733 - 21300'), isTrue);
+
+      final noMarginText = config.copyWith(markup: 0).generateBroadcastText();
+      expect(noMarginText.contains('🔹 23 OCT  —  IX 733 - 21000'), isTrue);
     });
 
     test('generateBroadcastText outputs (Via MCT) for connecting flights', () {
@@ -213,7 +217,8 @@ https://chat.whatsapp.com/BnPq1svY2fWCraLCpUD5eo'''.trim();
       );
 
       final text = config.generateBroadcastText();
-      expect(text.contains('🔹 21 OCT  —  OV 774/241 - 19500 (Via MCT)'), isTrue);
+      // Default margin is 300, so 19500 + 300 = 19800
+      expect(text.contains('🔹 21 OCT  —  OV 774/241 - 19800 (Via MCT)'), isTrue);
     });
   });
 }

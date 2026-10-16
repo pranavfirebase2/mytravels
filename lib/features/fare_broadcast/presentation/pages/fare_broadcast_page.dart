@@ -32,6 +32,7 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
   void initState() {
     super.initState();
     _mobileTabController = TabController(length: 2, vsync: this);
+    _markupController.text = '300';
   }
 
   @override
@@ -372,26 +373,39 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
             spacing: 12,
             runSpacing: 12,
             children: [
-              // Markup Field
-              SizedBox(
-                width: 140,
-                child: TextField(
-                  controller: _markupController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Add Margin (₹)',
-                    hintText: '0',
-                    prefixText: '+₹ ',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    isDense: true,
+              // Markup Field with Quick Presets
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 135,
+                    child: TextField(
+                      controller: _markupController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Add Margin (₹)',
+                        hintText: '300',
+                        prefixText: '+₹ ',
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        final markup = double.tryParse(val) ?? 0.0;
+                        ref.read(fareBroadcastProvider.notifier).setMarkup(markup);
+                      },
+                    ),
                   ),
-                  onChanged: (val) {
-                    final markup = double.tryParse(val) ?? 0.0;
-                    ref.read(fareBroadcastProvider.notifier).setMarkup(markup);
-                  },
-                ),
+                  const SizedBox(width: 8),
+                  _buildMarginPreset(ref, 0, '₹0'),
+                  const SizedBox(width: 4),
+                  _buildMarginPreset(ref, 200, '+200'),
+                  const SizedBox(width: 4),
+                  _buildMarginPreset(ref, 300, '+300'),
+                  const SizedBox(width: 4),
+                  _buildMarginPreset(ref, 500, '+500'),
+                ],
               ),
 
               // Contact Name
@@ -791,21 +805,26 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
                 ),
               ],
               const SizedBox(width: 5),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF16A34A)
-                      : Colors.grey.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '₹$price',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : Colors.black87,
+              Tooltip(
+                message: config.markup > 0
+                    ? 'Base: ₹${date.lowestPrice.toInt()} + Margin: ₹${config.markup.toInt()} = ₹$price'
+                    : 'Base Fare: ₹$price',
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF16A34A)
+                        : Colors.grey.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '₹$price',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
                   ),
                 ),
               ),
@@ -831,7 +850,7 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
               ],
               const SizedBox(width: 6),
               InkWell(
-                onTap: () => _showEditDateDialog(sectorIdx, dateIdx, date),
+                onTap: () => _showEditDateDialog(sectorIdx, dateIdx, date, config),
                 borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.all(2),
@@ -1068,6 +1087,7 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
     int sectorIdx,
     int dateIdx,
     BroadcastDateItem dateItem,
+    FareBroadcastConfig config,
   ) {
     final flightNumController =
         TextEditingController(text: dateItem.flightNumber);
@@ -1104,11 +1124,14 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
               TextField(
                 controller: priceController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Lowest Price (₹)',
+                decoration: InputDecoration(
+                  labelText: 'Lowest Price (Base Fare ₹)',
                   hintText: 'e.g. 21000',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   prefixText: '₹ ',
+                  helperText: config.markup > 0
+                      ? 'Broadcast will show ₹${(dateItem.lowestPrice + config.markup).toInt()} (+₹${config.markup.toInt()} margin)'
+                      : null,
                 ),
               ),
               const SizedBox(height: 14),
@@ -1154,6 +1177,37 @@ class _FareBroadcastPageState extends ConsumerState<FareBroadcastPage>
             child: const Text('Save Changes'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMarginPreset(WidgetRef ref, double amount, String label) {
+    final currentMarkup =
+        ref.watch(fareBroadcastProvider).value?.markup ?? 300.0;
+    final isSelected = (currentMarkup - amount).abs() < 0.01;
+    return InkWell(
+      onTap: () {
+        _markupController.text = amount == 0 ? '' : amount.toInt().toString();
+        ref.read(fareBroadcastProvider.notifier).setMarkup(amount);
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.headerDark : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? AppColors.headerDark : const Color(0xFFCBD5E1),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: isSelected ? Colors.white : AppColors.headerDark,
+          ),
+        ),
       ),
     );
   }

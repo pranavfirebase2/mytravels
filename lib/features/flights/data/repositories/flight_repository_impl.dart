@@ -14,6 +14,11 @@ class FlightRepositoryImpl implements FlightRepository {
   }
 
   @override
+  Stream<List<Flight>> watchAllFlights() {
+    return _remoteDataSource.watchAllFlights();
+  }
+
+  @override
   Future<void> saveFlights(
     List<Flight> flights, {
     bool replaceSectorFares = true,

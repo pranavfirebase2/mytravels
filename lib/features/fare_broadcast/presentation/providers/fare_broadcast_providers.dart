@@ -24,8 +24,8 @@ class FareBroadcastConfig {
   FareBroadcastConfig({
     required this.sectors,
     this.priceMode = PriceDisplayMode.flightAndAmount,
-    this.markup = 0.0,
-    this.contactName = 'Sorryjith',
+    this.markup = 300.0,
+    this.contactName = 'Sooryajith',
     this.contactPhone = '+91 85900 72609',
     this.communityLink = 'https://chat.whatsapp.com/BnPq1svY2fWCraLCpUD5eo',
     this.customHeader =
@@ -147,7 +147,11 @@ class FareBroadcastNotifier extends AsyncNotifier<FareBroadcastConfig> {
     }
 
     final sectors = _computeBroadcastSectors(flights, agencyDeductions);
-    return FareBroadcastConfig(sectors: sectors);
+    return FareBroadcastConfig(
+      sectors: sectors,
+      markup: 300.0,
+      contactName: 'Sooryajith',
+    );
   }
 
   List<BroadcastSectorItem> _computeBroadcastSectors(
